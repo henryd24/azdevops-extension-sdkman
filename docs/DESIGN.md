@@ -15,11 +15,11 @@ Extensión de Azure DevOps (publisher `hendamm`, id `sdkman-manager`) para **ins
 | ----- | ---------------------- |
 | `sdk` es una **función de bash** definida al hacer `source $SDKMAN_DIR/bin/sdkman-init.sh`, no un binario. | Cada invocación va en `bash -c 'source init && sdk "$@"' _ <args>`. Args como parámetros posicionales: **sin interpolación de strings, sin inyección**. |
 | Cada paso de Azure Pipelines es un proceso nuevo: lo que `sdk use` exporta se pierde. | No dependemos de `sdk use`. Resolvemos la ruta de la versión instalada y exportamos `<CANDIDATE>_HOME` + `PATH` con `##vso[task.setvariable]` / `prependPath`. |
-| El instalador oficial (`get.sdkman.io`) exige `bash`, `curl`, `zip`, `unzip` (y `tar`, `sed`...). | Pre-chequeo de requisitos con mensaje claro antes de instalar. |
-| El instalador modifica `~/.bashrc`, `~/.zshrc`... | Se usa `rcupdate=false`: el agente no se ensucia. |
-| Pregunta cosas de forma interactiva (`Do you want to set X as default? (Y/n)`). | `sdkman_auto_answer=true` + `sdkman_auto_selfupdate=false` + `sdkman_colour_enable=false` siempre. |
-| Solo corre en shells POSIX; en Windows requiere Git Bash / MSYS2 / WSL. | Linux y macOS son ciudadanos de primera. Windows: soporte **experimental**, tras un spike (ver riesgos). |
-| `current` es un symlink; en Git Bash puede no ser un symlink real. | Usamos la ruta explícita `$SDKMAN_DIR/candidates/<c>/<version>`, nunca `current`. |
+| El instalador oficial (`get.sdkman.io`) exige **bash ≥ 4**, `curl`, `zip`, `unzip`. | Pre-chequeo de requisitos (incluida la versión de bash) con mensaje claro antes de instalar. |
+| El instalador modifica `~/.bashrc`, `~/.zshrc`... | Se descarga `https://get.sdkman.io?rcupdate=false` (verificado: no toca los rc; sin el parámetro sí). |
+| Pregunta cosas de forma interactiva (`Do you want to set X as default? (Y/n)`). | `sdkman_auto_answer=true` + `sdkman_auto_selfupdate=false`. Sin colores: `NO_COLOR=1` (la variable `sdkman_colour_enable` del entorno se ignora; solo vale en `etc/config`). |
+| Solo corre en shells POSIX. Windows: sin soporte nativo; el instalador **rechaza Cygwin** y la doc oficial pide MSYS+MinGW o WSL. | Linux y macOS son ciudadanos de primera. **Windows fuera de v1** (ver resultados de la Fase 0). |
+| `current` es un symlink que **`sdk install` mueve siempre** a la versión recién instalada (aunque `auto_answer=false`, con stdin cerrado responde Y). | Usamos la ruta explícita `$SDKMAN_DIR/candidates/<c>/<version>` para exportar. Si se instalan varias versiones, al final se ejecuta `sdk default` con la elegida para que `current` sea coherente. |
 | Datos vienen de `api.sdkman.io` y de los vendors (Temurin, Azul, GraalVM, Apache...). | Inputs para timeouts, reintentos y modo offline; documentar dominios a permitir en firewalls. |
 
 ## Tareas (4, como en uvpy)
@@ -85,16 +85,43 @@ Contrato de `runSdk`: `bash --noprofile --norc -c 'source "$SDKMAN_DIR/bin/sdkma
 5. **Cache**: `SDKMAN_DIR` en `Agent.ToolsDirectory` (persistente en self-hosted). Para hosted, doc con `Cache@2` sobre `$(SDKMAN_DIR)/candidates` y `archives` (clave = hash de `.sdkmanrc` / candidates).
 6. **Idioma**: salida de tareas, `task.json` y `README.md` en inglés; `README.es.md`, comentarios internos y `docs/` en español (igual que uvpy).
 
-## Riesgos y preguntas abiertas (resolver en la Fase 0)
+## Resultados de la Fase 0 (spikes)
+
+Ejecutados en Linux x64 (ubuntu, bash 5.2) con `HOME` y `SDKMAN_DIR` aislados. Script de apoyo: el patrón `run.sh` descrito en "Contrato de `runSdk`".
+
+| # | Pregunta | Resultado |
+| - | -------- | --------- |
+| 1 | ¿Instala sin tocar los rc? | **Sí** con `?rcupdate=false` (hash de `.bashrc`/`.zshrc` idéntico). Sin el parámetro, `.bashrc` crece. Instalación completa en ~2 s. |
+| 2 | ¿Se puede fijar `SDKMAN_DIR`? | **Sí**, el script respeta `SDKMAN_DIR` exportado. |
+| 3 | ¿Cuál es la versión del CLI y se puede fijar? | La versión está **hardcodeada en el script servido** (`SDKMAN_VERSION=5.23.2`, y un CLI nativo `0.7.34`, descargados de `api.sdkman.io/2/broker/download/sdkman/install/<v>/<plataforma>`). No hay parámetro para fijarla. Opciones: (a) aceptar "última estable", (b) sustituir `SDKMAN_VERSION` en el script descargado antes de ejecutarlo (el broker sirve versiones antiguas, 5.18.2 → 200, inexistente → 404). Recomendación v1: (a) con la versión instalada visible en outputs; (b) como input avanzado. |
+| 4 | ¿`sdk install` es no interactivo? | **Sí** con stdin cerrado y `sdkman_auto_answer=true`. |
+| 5 | Códigos de salida | Éxito y "ya instalada" → 0. Versión inexistente → 1. Candidate inválido → 1. Sin red (`SDKMAN_CANDIDATES_API` roto) → 1 con "Internet unreachable". Se puede confiar en `exitCode`. |
+| 6 | Estructura en disco | `candidates/<c>/<versión>/bin/...` (java, javac; mvn, mvnDebug) más symlink `current`. `sdk home <c> <v>` devuelve la ruta directa (exit 0). Con `JAVA_HOME` + `PATH` explícitos, `java -version` funciona sin cargar SDKMAN. |
+| 7 | `.sdkmanrc` | `sdk env install` instala lo que falta y activa **solo en esa shell** (confirma que hay que exportar nosotros). |
+| 8 | Colores | `sdkman_colour_enable=true` en el entorno **no** se respeta; `NO_COLOR=1` sí. |
+| 9 | Override de API | `SDKMAN_CANDIDATES_API` se respeta (definido en `sdkman-init.sh`); sirve para mirrors y para simular caída. |
+| 10 | Tiempos | `sdk install java 21.0.5-tem` ≈ 40 s en este entorno; maven, pocos segundos. Timeouts por defecto de tarea: setup 120 s, install 600 s. |
+| 11 | macOS | El instalador **exige bash ≥ 4** (aborta con mensaje) y macOS trae 3.2. No pude probar los runners hosted de macOS: si no traen bash ≥ 4 en el PATH, la tarea debe fallar con instrucción `brew install bash` o localizarlo en `/opt/homebrew/bin` / `/usr/local/bin`. Pendiente de verificar en la Fase 7. |
+| 12 | Windows | No probado aquí; la documentación oficial indica que no hay soporte nativo (Git Bash + MinGW/MSYS o WSL), que Git Bash no trae `zip`/`unzip` y que el instalador rechaza Cygwin. **Decisión: Windows fuera de v1**; la tarea falla pronto con un mensaje claro ("SDKMAN no soporta agentes Windows; usa Linux/macOS o WSL"). Se reevalúa después de v1 con un spike en `windows-latest`. |
+
+### Cambios que esto introduce en el diseño
+
+- F1.2 incluye la comprobación de **bash ≥ 4** y, en macOS, búsqueda de un bash moderno.
+- La tarea ejecuta todo con `NO_COLOR=1` y `sdkman_auto_answer=true`.
+- `setAsDefault` deja de ser un interruptor: `sdk install` siempre mueve `current`; solo reordenamos con `sdk default` al final para coherencia.
+- F1.7 (fijar versión del CLI) pasa a P2 y se implementa sustituyendo `SDKMAN_VERSION` en el script.
+- Windows sale de v1 (F5.4 → P2); el error es explícito.
+
+## Riesgos que siguen abiertos
 
 | Riesgo | Plan |
 | ------ | ---- |
-| **Windows**: Git Bash trae `bash`/`curl` pero normalmente no `zip`/`unzip`; symlinks; rutas `/c/...` vs `C:\...`. | Spike en `windows-latest`. Si no es viable, declarar Windows no soportado en v1 con error claro, no un fallo críptico. |
-| Cómo fijar la versión de SDKMAN CLI (el instalador baja la última estable). | Verificar en el spike qué parámetros admite `get.sdkman.io` y el broker (`api.sdkman.io/2/broker/download/sdkman/...`); si no se puede fijar, documentarlo. |
+| Bash ≥ 4 en macOS hosted. | Verificar en la Fase 7; fallback de búsqueda de bash en rutas de Homebrew. |
 | Rate limits / indisponibilidad de `api.sdkman.io` o de un vendor. | Reintentos con backoff en `runSdk install`, mensajes que nombren el dominio que falló. |
-| Alpine/musl: SDKMAN exige `bash`, `curl`, `zip`, `unzip` y no todos los candidates tienen build musl. | Chequeo de requisitos + doc; caso Alpine tarde (como en uvpy). |
-| Agentes sin internet. | `installUrl`, `candidatesApi` y `offline`; doc de mirror interno. |
-| Colisión con `JAVA_HOME` previo del agente (`JAVA_HOME_17_X64`, tarea `JavaToolInstaller`). | `SdkmanInstall` sobrescribe `JAVA_HOME` solo para el job; el resumen avisa del valor anterior. |
+| Alpine/musl: faltan `bash`, `curl`, `zip`, `unzip` y no todos los candidates tienen build musl. | Chequeo de requisitos + doc; caso Alpine tarde. |
+| Agentes sin internet. | `installUrl`, `candidatesApi` (verificado) y `offline`; doc de mirror interno. |
+| Colisión con `JAVA_HOME` previo del agente (`JAVA_HOME_17_X64`, `JavaToolInstaller`). | `SdkmanInstall` sobrescribe `JAVA_HOME` solo para el job; warning con el valor anterior. |
+| Proxy corporativo: `JAVA_TOOL_OPTIONS` de este entorno aparece en la salida de `java -version`. | Los tests de `expect.js` deben comparar con `includes`, no con igualdad. |
 
 ## Ideas para después (fuera de v1)
 

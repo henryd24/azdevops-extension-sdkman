@@ -4,17 +4,17 @@ Referencia: `azdevops-extension-uvpy-manager` (mismas herramientas: TypeScript, 
 
 Cada fase termina con **tests en verde + `npm run typecheck` + commit** y deja el repo en un estado utilizable. Orden pensado para que lo más arriesgado (bash, Windows, estado entre pasos) se valide primero.
 
-## Fase 0 · Spikes (medio día, sin código de producción)
+## Fase 0 · Spikes — HECHA (resultados en `DESIGN.md`)
 
 Objetivo: cerrar las preguntas abiertas de `DESIGN.md` con evidencia, en un pipeline de prueba o contenedores.
 
 1. En ubuntu/macOS: `curl -s "https://get.sdkman.io?rcupdate=false" | SDKMAN_DIR=/tmp/s bash`; confirmar que no toca rc y qué variables/params admite (versión fija de CLI, `SDKMAN_DIR`).
 2. `bash -c 'source $SDKMAN_DIR/bin/sdkman-init.sh && sdk install java 21.0.5-tem'` con `sdkman_auto_answer=true`: confirmar que no pregunta nada y revisar exit codes en fallos (versión inexistente, sin red).
 3. Confirmar `sdk home java <v>` o ruta directa `candidates/java/<v>`; qué hay en `bin/` para java/gradle/maven/kotlin.
-4. **Windows hosted**: ¿existe `zip`/`unzip` en Git Bash? ¿symlinks? ¿rutas? Decisión go/no-go para F5.4.
+4. **Windows**: decisión tomada por documentación oficial (sin soporte nativo, Cygwin rechazado, Git Bash sin zip/unzip): fuera de v1 con error claro. Spike real pendiente para después de v1. **macOS**: verificar bash ≥ 4 en el runner (Fase 7).
 5. Medir tiempos (install SDKMAN, install JDK) para fijar timeouts por defecto.
 
-Entregable: sección "Resultados de los spikes" añadida a `DESIGN.md` y actualización de riesgos.
+Entregable (cumplido): sección "Resultados de la Fase 0" en `DESIGN.md`, riesgos actualizados.
 
 ## Fase 1 · Esqueleto
 
@@ -28,7 +28,7 @@ Entregable: sección "Resultados de los spikes" añadida a `DESIGN.md` y actuali
 
 ## Fase 2 · Núcleo `shared/sdkman.ts` + `SdkmanSetup`
 
-- `platform.ts`: detectar SO/arch, localizar `bash` (PATH; Git Bash en Windows), verificar requisitos (`bash`, `curl`, `zip`, `unzip`, `tar`) y producir el mensaje de error por distro (apt/apk/brew).
+- `platform.ts`: detectar SO/arch, rechazar Windows con mensaje claro, localizar un `bash` ≥ 4 (PATH; en macOS también `/opt/homebrew/bin`, `/usr/local/bin`), verificar requisitos (`curl`, `zip`, `unzip`) y producir el mensaje de error por distro (apt/apk/brew).
 - `sdkman.ts`:
   - `ensureSdkman(opts)`: 1) tool cache / `sdkmanDir` con `sdkman-init.sh`, 2) `~/.sdkman` existente, 3) requisitos → descargar script con Node (https, con `installUrl`) → ejecutar con `bash` y `rcupdate=false` → cachear (`tool.cacheDir`) → exportar `SDKMAN_DIR`.
   - `runSdk(args, opts)`: `bash --noprofile --norc -c 'source ... ; sdk "$@"' sdk <args>`, env no interactivo, devuelve `{exitCode, stdout}`; `failOnError`.
@@ -43,7 +43,7 @@ Entregable: sección "Resultados de los spikes" añadida a `DESIGN.md` y actuali
 - `inputs.ts` de la tarea: parser `candidate [version]`, validación de identifiers (regex `^[A-Za-z0-9._+-]+$`), duplicados.
 - `resolveCandidateHome(candidate, version)` → `<SDKMAN_DIR>/candidates/<c>/<v>`; si no se indicó versión, leer la instalada con `sdk current`/directorio resultante.
 - Flujo: `ensureSdkman({autoInstall})` → por candidate: ¿ya instalada? → `sdk install <c> <v>` (con reintentos/backoff) → `exportCandidate`: `setVariable(<C>_HOME)`, `prependPath(bin)`, outputs `sdkman.<c>.version/home`.
-- Default activo = primera versión de cada candidate; `setAsDefault` → `sdk default`.
+- Activa = primera versión de cada candidate; al terminar `sdk default <c> <v>` para que `current` coincida (`sdk install` siempre lo mueve).
 - Warning si pisa `JAVA_HOME`.
 - Tests unitarios + prueba real en Linux: `java 21.0.5-tem` + `maven`, verificando con `scripts/expect.js` que `java -version` y `mvn -v` salen con las rutas esperadas en un paso posterior.
 - Features: F2.1–F2.6, F2.9.
@@ -69,13 +69,12 @@ Entregable: sección "Resultados de los spikes" añadida a `DESIGN.md` y actuali
 ## Fase 6 · Robustez y modos de red
 
 - Mirror (`installUrl`, `candidatesApi`), `insecureSsl`, timeouts, `offline`, versión local (F2.7), `system.debug` → `sdkman_debug_mode`.
-- Si el spike de la Fase 0 lo permite: fijar versión del CLI de SDKMAN (F1.7).
 - Mensajes de error que nombren el dominio (api.sdkman.io, vendor) ante fallos de red.
 - Features: F1.6, F1.7, F2.6–F2.8, F5.2.
 
 ## Fase 7 · CI y validación en agentes reales
 
-- `azure-pipelines.yml`: ejecuta los bundles (`tasks/<tarea>/index.js`) en `ubuntu-latest` y `macOS-latest` (y Windows si el spike fue favorable), con los fixtures. Mismo enfoque que uvpy: no instala la extensión, ejecuta el bundle desde un paso `script`.
+- `azure-pipelines.yml`: ejecuta los bundles (`tasks/<tarea>/index.js`) en `ubuntu-latest` y `macOS-latest` (comprobar aquí bash ≥ 4); un job en Windows que verifique el error claro, con los fixtures. Mismo enfoque que uvpy: no instala la extensión, ejecuta el bundle desde un paso `script`.
 - GitHub Actions: `ci.yml` (test + typecheck en matriz de SO, `pack:dev`), `release.yml` (release automático en push a trunk con cambios de código; variable `EXTENSION_PUBLISHER`).
 - Instalar el `.vsix` dev en una organización para probar el parseo de `task.json` y el editor de pipelines.
 - Añadir caso Alpine/musl si procede.
