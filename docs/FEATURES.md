@@ -10,7 +10,7 @@ Cada feature tiene un ID para referenciarla en el plan de implementación (`docs
 | F1.2 | Pre-chequeo de requisitos (**bash ≥ 4**, `curl`, `zip`, `unzip`) con lista de los que faltan y cómo instalarlos; en macOS busca un bash moderno de Homebrew. | P0 | En una imagen sin `zip` el error nombra `zip` y sugiere `apt-get/apk/brew`; con bash 3.2 sugiere `brew install bash`. |
 | F1.3 | Reutilizar SDKMAN existente (en `SDKMAN_DIR`, tool cache o `~/.sdkman`). | P0 | Segunda ejecución: `sdkmanCacheHit=true` y sin descarga. |
 | F1.4 | Outputs `sdkmanDir`, `sdkmanVersion`, `sdkmanCacheHit` y variable `SDKMAN_DIR` para pasos siguientes. | P0 | Visibles con `name:` de la tarea. |
-| F1.5 | Config no interactiva forzada (`sdkman_auto_answer=true`, `auto_selfupdate=false`, `NO_COLOR=1`). | P0 | Ningún comando se queda esperando stdin. |
+| F1.5 | Ejecución no interactiva: stdin cerrado y salida limpia (sin colores ni barra de progreso). | P0 | Ningún comando se queda esperando stdin. |
 | F1.6 | Mirror del instalador y override de `SDKMAN_CANDIDATES_API`; `insecureSsl`, `connectTimeout`, `maxTime`. | P1 | Agente con proxy/mirror instala sin llegar a `get.sdkman.io`. |
 | F1.7 | Fijar versión de SDKMAN CLI sustituyendo `SDKMAN_VERSION` en el script de instalación. | P2 | `sdk version` informa la versión pedida. |
 | F1.8 | `autoInstall: false`: falla con mensaje claro si SDKMAN no está. | P1 | Mensaje accionable. |

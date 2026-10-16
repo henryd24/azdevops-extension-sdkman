@@ -1,0 +1,87 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
+  "category": "Utility",
+  "author": "Henry Daniel Mosquera",
+  "version": {
+    "Major": 0,
+    "Minor": 1,
+    "Patch": 0
+  },
+  "visibility": [
+    "Build",
+    "Release"
+  ],
+  "id": "3c2d71d2-312d-40a7-83ab-ecb0862a61d8",
+  "name": "SdkmanSetup",
+  "friendlyName": "Install SDKMAN",
+  "description": "Install SDKMAN! (or reuse an existing installation) and expose SDKMAN_DIR to the following steps",
+  "helpMarkDown": "Installs SDKMAN! without modifying shell profiles. Requires bash 4+, curl, zip and unzip on the agent.",
+  "instanceNameFormat": "Install SDKMAN",
+  "groups": [
+    {
+      "name": "advanced",
+      "displayName": "Advanced",
+      "isExpanded": false
+    }
+  ],
+  "inputs": [
+    {
+      "name": "sdkmanDir",
+      "type": "string",
+      "label": "SDKMAN directory",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Where SDKMAN lives (`SDKMAN_DIR`). Empty = the `SDKMAN_DIR` already set by an earlier step, an existing `~/.sdkman`, or `<Agent.ToolsDirectory>/sdkman`."
+    },
+    {
+      "name": "installUrl",
+      "type": "string",
+      "label": "Installer URL",
+      "defaultValue": "https://get.sdkman.io?rcupdate=false",
+      "required": false,
+      "helpMarkDown": "Official installer, or an internal mirror for agents without internet access. Keep `rcupdate=false` so the agent's `~/.bashrc` is not modified.",
+      "groupName": "advanced"
+    },
+    {
+      "name": "candidatesApi",
+      "type": "string",
+      "label": "Candidates API",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Overrides `SDKMAN_CANDIDATES_API` (default `https://api.sdkman.io/2`), for a mirror of the SDKMAN API.",
+      "groupName": "advanced"
+    },
+    {
+      "name": "bashPath",
+      "type": "string",
+      "label": "bash path",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Path to a bash 4+ executable. Empty = auto-detect (Homebrew bash on macOS, Git Bash on Windows).",
+      "groupName": "advanced"
+    }
+  ],
+  "outputVariables": [
+    {
+      "name": "sdkmanDir",
+      "description": "SDKMAN_DIR used by this job"
+    },
+    {
+      "name": "sdkmanVersion",
+      "description": "Installed SDKMAN CLI version"
+    },
+    {
+      "name": "sdkmanCacheHit",
+      "description": "true when SDKMAN was already installed and nothing was downloaded"
+    }
+  ],
+  "execution": {
+    "Node20_1": {
+      "target": "index.js"
+    },
+    "Node24": {
+      "target": "index.js"
+    }
+  },
+  "minimumAgentVersion": "4.248.0"
+}

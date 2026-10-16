@@ -1,0 +1,80 @@
+# Valida las tareas en agentes reales de Azure Pipelines (Linux y macOS).
+# Ejecuta los bundles tal como los empaqueta la extensión (scripts/run-task.js); el agente interpreta los
+# ##vso que imprimen (PATH, variables, resultado). El .vsix final lo genera GitHub Actions.
+# Windows (Git Bash) no se valida todavía: ver docs/IMPLEMENTATION_PLAN.md (Fase 7).
+trigger:
+  branches:
+    include: [trunk]
+pr:
+  branches:
+    include: [trunk]
+
+variables:
+  NODE_VERSION: 20.x
+
+stages:
+  - stage: Build
+    jobs:
+      - job: build
+        displayName: Test and package tasks
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+          - script: npm ci
+            displayName: Install
+          - script: npm test
+            displayName: Unit tests
+          - script: npm run typecheck
+            displayName: Typecheck
+          - script: npm run package:tasks
+            displayName: Bundle tasks (ncc)
+          - publish: tasks
+            artifact: tasks
+            displayName: Publish bundled tasks
+
+  - stage: Validate
+    dependsOn: Build
+    jobs:
+      - job: validate
+        displayName: Validate on
+        strategy:
+          maxParallel: 2
+          matrix:
+            linux:
+              vmImage: ubuntu-latest
+            macos:
+              vmImage: macOS-latest
+        pool:
+          vmImage: $(vmImage)
+        variables:
+          TASKS_DIR: $(Pipeline.Workspace)/tasks
+        steps:
+          - checkout: self
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+          - download: current
+            artifact: tasks
+
+          # --- SdkmanSetup (macOS: comprueba que hay un bash >= 4 o falla con el mensaje de brew)
+          - script: node scripts/run-task.js sdkman-setup
+            name: sdkmansetup
+            displayName: SdkmanSetup
+          - script: node scripts/expect.js 'bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk version"' "script:"
+            displayName: SDKMAN_DIR is usable from a script step
+
+          # --- SdkmanInstall: dos JDK, el primero activo
+          - script: node scripts/run-task.js sdkman-install "candidates=java 21.0.5-tem%0Ajava 17.0.13-tem%0Amaven 3.9.9"
+            name: sdkmaninstall
+            displayName: SdkmanInstall java 21 + 17, maven
+          - script: node scripts/expect.js "java -version" "21.0.5"
+            displayName: Active java is 21
+          - script: node scripts/expect.js "mvn -v" "Apache Maven 3.9.9"
+            displayName: maven is on the PATH
+          - script: node scripts/expect.js 'echo $JAVA_HOME' "candidates/java/21.0.5-tem"
+            displayName: JAVA_HOME points to the active JDK
+          - script: node scripts/run-task.js sdkman-install "candidates=java 21.0.5-tem"
+            displayName: SdkmanInstall is idempotent

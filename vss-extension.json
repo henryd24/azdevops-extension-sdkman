@@ -1,0 +1,63 @@
+{
+  "manifestVersion": 1,
+  "id": "sdkman-manager",
+  "name": "SDKMAN Manager",
+  "description": "Install SDKMAN!, Java, Gradle, Maven, Kotlin and more, and configure them in your pipelines. Works on Linux and macOS agents (Windows with Git Bash).",
+  "publisher": "hendamm",
+  "version": "0.0.1",
+  "public": false,
+  "categories": [
+    "Azure Pipelines"
+  ],
+  "content": {
+    "details": {
+      "path": "README.md"
+    },
+    "license": {
+      "path": "LICENSE"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "uri": "https://github.com/henryd24/azdevops-extension-sdkman"
+  },
+  "targets": [
+    {
+      "id": "Microsoft.VisualStudio.Services.Cloud"
+    }
+  ],
+  "contributions": [
+    {
+      "id": "sdkman-setup-task",
+      "type": "ms.vss-distributed-task.task",
+      "targets": [
+        "ms.vss-distributed-task.tasks"
+      ],
+      "properties": {
+        "name": "tasks/sdkman-setup"
+      }
+    },
+    {
+      "id": "sdkman-install-task",
+      "type": "ms.vss-distributed-task.task",
+      "targets": [
+        "ms.vss-distributed-task.tasks"
+      ],
+      "properties": {
+        "name": "tasks/sdkman-install"
+      }
+    }
+  ],
+  "files": [
+    {
+      "path": "tasks"
+    },
+    {
+      "path": "images",
+      "addressable": true
+    }
+  ],
+  "icons": {
+    "default": "images/extension-icon.png"
+  }
+}

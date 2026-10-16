@@ -1,0 +1,41 @@
+# Dependencias
+node_modules/
+.npm
+
+# Logs
+*.log
+npm-debug.log*
+
+# Cobertura y caches
+coverage
+**/coverage
+*.lcov
+*.tsbuildinfo
+.eslintcache
+
+# Variables locales (copiar .env-test a .env en cada tarea)
+.env
+**/.env
+.env.*.local
+
+# Salida de empaquetado
+/tasks/
+dist
+**.vsix
+**/*.vsix
+**/*.zip
+*.tgz
+**.taskkey
+
+# Bun
+*.bun
+**bun.lockb
+
+# SO
+**DS_Store
+
+# Cobertura de tests / paquetes de dev
+*.vsix
+
+# Artefactos que generan los fixtures de validación
+dist/

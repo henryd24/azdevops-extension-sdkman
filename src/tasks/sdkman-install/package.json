@@ -1,0 +1,27 @@
+{
+  "name": "sdkman-install-task",
+  "version": "1.0.0",
+  "description": "SDKMAN task",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "test": "jest",
+    "testdev": "jest --watch",
+    "coverage": "jest --coverage",
+    "build": "tsc -p tsconfig.build.json",
+    "test-local": "export $(grep -v '^#' .env | xargs -0); bun src/sdkman_install.ts",
+    "clean": "node -e \"require('fs').rmSync('../../../tasks/sdkman-install',{recursive:true,force:true})\"",
+    "configure": "node -e \"for (const f of ['task.json','icon.png']) require('fs').copyFileSync(f,'../../../tasks/sdkman-install/'+f)\"",
+    "package": "npm run clean && ncc build src/sdkman_install.ts -o ../../../tasks/sdkman-install --minify && npm run configure"
+  },
+  "author": "Henry Daniel Mosquera",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^24.10.0",
+    "@vercel/ncc": "^0.38.4",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.7.2"
+  }
+}

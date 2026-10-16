@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "target": "ES2020",
+    "strict": true,
+    "removeComments": true,
+    "skipLibCheck": true,
+    "rootDir": "../..",
+    "outDir": "../../../tasks/sdkman-install/",
+    "types": ["jest", "node"]
+  },
+  "exclude": ["node_modules"]
+}

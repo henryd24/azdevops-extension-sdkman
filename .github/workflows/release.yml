@@ -1,0 +1,115 @@
+name: Release
+
+# Al hacer push a trunk con cambios que afectan al .vsix: calcula la siguiente versión
+# (patch sobre el último tag vX.Y.Z), crea el tag y el GitHub Release y adjunta el .vsix.
+# No se dispara con cambios en README, docs, tests, workflows ni pipelines, así que no hace
+# falta subir la versión a mano. También se puede lanzar manualmente (workflow_dispatch).
+on:
+  push:
+    branches: [trunk]
+    paths:
+      - "src/**"
+      - "!src/**/__tests__/**"
+      - "!src/**/*.test.ts"
+      - "!src/**/jest.config.js"
+      - "!src/**/testSetup.js"
+      - "vss-extension.json"
+      - "config/release.json"
+      - "images/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Qué parte de la versión incrementar"
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  contents: write
+
+# Evita que dos releases calculen la misma versión a la vez.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # necesario para ver los tags existentes
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Resolve next version
+        id: version
+        shell: bash
+        env:
+          BUMP: ${{ inputs.bump || 'patch' }}
+        run: |
+          last=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          if [ -z "$last" ]; then
+            next="1.0.0"
+          else
+            IFS=. read -r major minor patch <<< "${last#v}"
+            case "$BUMP" in
+              major) next="$((major + 1)).0.0" ;;
+              minor) next="${major}.$((minor + 1)).0" ;;
+              *)     next="${major}.${minor}.$((patch + 1))" ;;
+            esac
+          fi
+          echo "Last tag: ${last:-none} -> next: v$next"
+          echo "value=$next" >> "$GITHUB_OUTPUT"
+
+      # El agente cachea cada tarea por su versión: se alinea con la de la extensión en cada release.
+      - name: Set task versions
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          node -e '
+            const fs = require("fs"), path = require("path");
+            const [Major, Minor, Patch] = process.env.VERSION.split(".").map(Number);
+            for (const t of fs.readdirSync("src/tasks")) {
+              const file = path.join("src/tasks", t, "task.json");
+              if (!fs.existsSync(file)) continue;
+              const json = JSON.parse(fs.readFileSync(file, "utf8"));
+              json.version = { Major, Minor, Patch };
+              fs.writeFileSync(file, JSON.stringify(json, null, 2) + "\n");
+              console.log(file, "->", process.env.VERSION);
+            }'
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run package:tasks
+
+      - name: Create release .vsix
+        run: >
+          npx tfx extension create
+          --manifest-globs vss-extension.json
+          --overrides-file config/release.json
+          --publisher "${{ vars.EXTENSION_PUBLISHER || 'hendamm' }}"
+          --override "{\"version\":\"${{ steps.version.outputs.value }}\"}"
+          --output-path dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsix-release
+          path: dist/*.vsix
+          if-no-files-found: error
+
+      # gh release create crea el tag sobre este commit si no existe.
+      - name: Create tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.version.outputs.value }}
+        run: >
+          gh release create "$TAG" dist/*.vsix --target "$GITHUB_SHA" --title "$TAG" --generate-notes
+          --notes "The .vsix is built for the publisher configured in this repository (repository variable EXTENSION_PUBLISHER). To install the extension in your own organization, build it with your own publisher: see 'Install in your organization' in the README."

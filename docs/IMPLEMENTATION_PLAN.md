@@ -16,7 +16,7 @@ Objetivo: cerrar las preguntas abiertas de `DESIGN.md` con evidencia, en un pipe
 
 Entregable (cumplido): sección "Resultados de la Fase 0" en `DESIGN.md`, riesgos actualizados.
 
-## Fase 1 · Esqueleto
+## Fase 1 · Esqueleto — HECHA (solo `SdkmanSetup` y `SdkmanInstall` entran en el manifiesto; `SdkmanEnv`/`SdkmanRun` llegan en las Fases 4-5 para no publicar tareas vacías)
 
 - Copiar de uvpy: `package.json` (renombrar a `sdkman-manager`), `tsconfig.json`, `jest.config.js`, `scripts/{tasks,run-task,expect}.js`, `config/{dev,release}.json`, `.gitignore`, `LICENSE`, `.github/workflows/{ci,release}.yml`.
 - `vss-extension.json` (`id: sdkman-manager`, `publisher: hendamm`, `public: false`, 4 contributions) e `images/` (logo e icono propios).
@@ -26,7 +26,7 @@ Entregable (cumplido): sección "Resultados de la Fase 0" en `DESIGN.md`, riesgo
 - **Hecho cuando**: `npm ci && npm test && npm run typecheck && npm run pack:dev` generan un `.vsix` instalable con las 4 tareas (aún sin lógica).
 - Features: base de F5.3, F5.6 (esqueleto de README).
 
-## Fase 2 · Núcleo `shared/sdkman.ts` + `SdkmanSetup`
+## Fase 2 · Núcleo `shared/sdkman.ts` + `SdkmanSetup` — HECHA
 
 - `platform.ts`: detectar SO/arch, rechazar Windows con mensaje claro, localizar un `bash` ≥ 4 (PATH; en macOS también `/opt/homebrew/bin`, `/usr/local/bin`), verificar requisitos (`curl`, `zip`, `unzip`) y producir el mensaje de error por distro (apt/apk/brew).
 - `sdkman.ts`:
@@ -38,7 +38,7 @@ Entregable (cumplido): sección "Resultados de la Fase 0" en `DESIGN.md`, riesgo
 - Features: F1.1–F1.5, F1.8.
 - **Hecho cuando**: segunda ejecución da `sdkmanCacheHit=true`; los archivos rc no cambian.
 
-## Fase 3 · `SdkmanInstall`
+## Fase 3 · `SdkmanInstall` — HECHA (probada en Linux x64 con sdk real; Windows y macOS pendientes de la Fase 7)
 
 - `inputs.ts` de la tarea: parser `candidate [version]`, validación de identifiers (regex `^[A-Za-z0-9._+-]+$`), duplicados.
 - `resolveCandidateHome(candidate, version)` → `<SDKMAN_DIR>/candidates/<c>/<v>`; si no se indicó versión, leer la instalada con `sdk current`/directorio resultante.

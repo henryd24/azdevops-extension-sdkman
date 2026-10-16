@@ -1,0 +1,119 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
+  "category": "Utility",
+  "author": "Henry Daniel Mosquera",
+  "version": {
+    "Major": 0,
+    "Minor": 1,
+    "Patch": 0
+  },
+  "visibility": [
+    "Build",
+    "Release"
+  ],
+  "id": "6fd0147a-f2c2-4c6a-bc1d-86338c823944",
+  "name": "SdkmanInstall",
+  "friendlyName": "Install tools with SDKMAN",
+  "description": "Install Java, Gradle, Maven, Kotlin... with SDKMAN! and make them available to the following steps",
+  "helpMarkDown": "Installs the listed SDKMAN candidates and exports `<CANDIDATE>_HOME` (e.g. `JAVA_HOME`) and the PATH. The first version listed for each candidate is the active one.",
+  "instanceNameFormat": "Install tools with SDKMAN",
+  "groups": [
+    {
+      "name": "advanced",
+      "displayName": "Advanced",
+      "isExpanded": false
+    }
+  ],
+  "inputs": [
+    {
+      "name": "candidates",
+      "type": "multiLine",
+      "label": "Candidates",
+      "defaultValue": "",
+      "required": true,
+      "helpMarkDown": "One per line: `<candidate> [<version>]`, e.g. `java 21.0.5-tem`, `gradle 8.11`, `maven`. Without a version, SDKMAN's default is used. List a candidate several times to install several versions; the first one is active. `#` starts a comment.",
+      "properties": {
+        "resizable": "true",
+        "rows": "4"
+      }
+    },
+    {
+      "name": "autoInstallSdkman",
+      "type": "boolean",
+      "label": "Install SDKMAN if missing",
+      "defaultValue": "true",
+      "required": false,
+      "helpMarkDown": "Installs SDKMAN when it is not on the agent. When off, the task fails if SDKMAN is missing (use SdkmanSetup first)."
+    },
+    {
+      "name": "setHomeVariables",
+      "type": "boolean",
+      "label": "Set <CANDIDATE>_HOME variables",
+      "defaultValue": "true",
+      "required": false,
+      "helpMarkDown": "Exports `JAVA_HOME`, `GRADLE_HOME`, `MAVEN_HOME`... for the active version of each candidate."
+    },
+    {
+      "name": "addToPath",
+      "type": "boolean",
+      "label": "Add to PATH",
+      "defaultValue": "true",
+      "required": false,
+      "helpMarkDown": "Prepends the `bin` folder of the active version of each candidate to the PATH."
+    },
+    {
+      "name": "sdkmanDir",
+      "type": "string",
+      "label": "SDKMAN directory",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Where SDKMAN lives (`SDKMAN_DIR`). Empty = the `SDKMAN_DIR` already set by an earlier step, an existing `~/.sdkman`, or `<Agent.ToolsDirectory>/sdkman`."
+    },
+    {
+      "name": "installUrl",
+      "type": "string",
+      "label": "Installer URL",
+      "defaultValue": "https://get.sdkman.io?rcupdate=false",
+      "required": false,
+      "helpMarkDown": "Official installer, or an internal mirror for agents without internet access. Keep `rcupdate=false` so the agent's `~/.bashrc` is not modified.",
+      "groupName": "advanced"
+    },
+    {
+      "name": "candidatesApi",
+      "type": "string",
+      "label": "Candidates API",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Overrides `SDKMAN_CANDIDATES_API` (default `https://api.sdkman.io/2`), for a mirror of the SDKMAN API.",
+      "groupName": "advanced"
+    },
+    {
+      "name": "bashPath",
+      "type": "string",
+      "label": "bash path",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Path to a bash 4+ executable. Empty = auto-detect (Homebrew bash on macOS, Git Bash on Windows).",
+      "groupName": "advanced"
+    }
+  ],
+  "outputVariables": [
+    {
+      "name": "sdkmanDir",
+      "description": "SDKMAN_DIR used by this job"
+    },
+    {
+      "name": "sdkmanInstalled",
+      "description": "JSON list of {candidate, version, home, installedNow, active}"
+    }
+  ],
+  "execution": {
+    "Node20_1": {
+      "target": "index.js"
+    },
+    "Node24": {
+      "target": "index.js"
+    }
+  },
+  "minimumAgentVersion": "4.248.0"
+}
