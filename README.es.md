@@ -28,7 +28,17 @@ SDKMAN es un programa de bash, así que el agente necesita:
 | `curl`, `zip`, `unzip` | Debian/Ubuntu: `apt-get install -y curl zip unzip`. Alpine: `apk add bash curl zip unzip`. |
 | Acceso a `get.sdkman.io`, `api.sdkman.io` y a los hosts de descarga de los vendors | O usa los inputs `installUrl` / `candidatesApi` con un mirror interno. |
 
-Los **agentes Windows** funcionan a través de **Git Bash** (Git for Windows). Deben tener además **`zip` y `unzip`** disponibles dentro de Git Bash (no los trae; instálalos, por ejemplo desde MSYS2 o GnuWin32, en `usr\bin` o `mingw64\bin` de Git). `unzip` ya lo necesita el agente de Azure Pipelines para desempaquetar herramientas. SDKMAN no soporta Cygwin ni el bash de WSL como shell del agente; la tarea nunca elige `C:\Windows\System32\bash.exe` (usa el input `bashPath` para indicar un Git Bash concreto). El soporte de Windows es de mejor esfuerzo: aún no lo cubren las pruebas automáticas de este repositorio.
+**Agentes hospedados** (comprobado en las imágenes `macos-latest` y `windows-latest` de GitHub, que son las mismas que hospeda Azure Pipelines):
+
+| Agente | Qué falta | Paso de prerrequisito |
+| ------ | --------- | --------------------- |
+| `ubuntu-latest` | nada | ninguno |
+| `macOS-latest` | solo hay bash 3.2 | `brew install bash` y añadir `$(brew --prefix)/bin` al PATH |
+| `windows-latest` | Git Bash trae `unzip` y `curl`, pero **no `zip`** | instalar `zip` en Git Bash |
+
+Los pasos de YAML exactos están en el [README en inglés](README.md#requirements).
+
+Los **agentes Windows** funcionan a través de **Git Bash** (Git for Windows, en `C:\Program Files\Git\bin\bash.exe`) y necesitan **`zip` y `unzip`** dentro de Git Bash. `unzip` también lo necesita el propio agente de Azure Pipelines para desempaquetar herramientas. SDKMAN no soporta Cygwin ni el bash de WSL como shell del agente: la tarea nunca elige `C:\Windows\System32\bash.exe` (usa el input `bashPath` para indicar un Git Bash concreto). En agentes Windows self-hosted instala `zip` y `unzip` en `usr\bin` de Git (por ejemplo desde MSYS2 o GnuWin32).
 
 La tarea falla pronto con un mensaje accionable cuando falta algo.
 

@@ -27,9 +27,35 @@ SDKMAN is a bash program, so the agent needs:
 | `curl`, `zip`, `unzip` | Debian/Ubuntu: `apt-get install -y curl zip unzip`. Alpine: `apk add bash curl zip unzip`. |
 | Internet access to `get.sdkman.io`, `api.sdkman.io` and the vendors' download hosts | Or use the `installUrl` / `candidatesApi` inputs with an internal mirror. |
 
-**Windows agents** work through **Git Bash** (Git for Windows). They must also have **`zip` and `unzip`** available inside Git Bash (Git Bash does not ship them; install them, for example from MSYS2 or GnuWin32, in Git's `usr\bin` or `mingw64\bin`). `unzip` is already required by the Azure Pipelines agent to unpack tools. SDKMAN does not support Cygwin or WSL's bash as the agent shell. The task never picks `C:\Windows\System32\bash.exe`; use the `bashPath` input to point at a specific Git Bash. Windows support is best effort: it is not covered by this repository's automated tests yet.
+**Hosted agents** (checked on GitHub's `macos-latest` and `windows-latest` images, which are the same images Azure Pipelines hosts):
+
+| Agent | What is missing | Prerequisite step |
+| ----- | --------------- | ----------------- |
+| `ubuntu-latest` | nothing | none |
+| `macOS-latest` | only bash 3.2 is installed | `brew install bash` and put `$(brew --prefix)/bin` on the PATH |
+| `windows-latest` | Git Bash has `unzip` and `curl`, but **no `zip`** | install `zip` into Git Bash (see below) |
+
+```yaml
+steps:
+  - script: |
+      brew install bash
+      BREW_BIN=`brew --prefix`/bin
+      echo "##vso[task.prependpath]$BREW_BIN"
+    displayName: Prerequisite - bash 4+ (macOS)
+    condition: eq(variables['Agent.OS'], 'Darwin')
+
+  - script: |
+      C:\msys64\usr\bin\pacman.exe -S --noconfirm zip
+      copy /Y C:\msys64\usr\bin\zip.exe "C:\Program Files\Git\usr\bin\zip.exe"
+      if not exist "C:\Program Files\Git\usr\bin\msys-bz2-1.dll" copy C:\msys64\usr\bin\msys-bz2-1.dll "C:\Program Files\Git\usr\bin\"
+    displayName: Prerequisite - zip in Git Bash (Windows)
+    condition: eq(variables['Agent.OS'], 'Windows_NT')
+```
+
+**Windows agents** work through **Git Bash** (Git for Windows, found at `C:\Program Files\Git\bin\bash.exe`), and they need **`zip` and `unzip`** available inside Git Bash. `unzip` is also what the Azure Pipelines agent itself relies on to unpack tools. SDKMAN does not support Cygwin or WSL's bash as the agent shell: the task never picks `C:\Windows\System32\bash.exe` (use the `bashPath` input to point at a specific Git Bash). On self-hosted Windows agents, install `zip` and `unzip` into Git's `usr\bin` (for example from MSYS2 or GnuWin32).
 
 The task fails early with an actionable message when something is missing.
+
 
 # Install in your organization
 
@@ -254,8 +280,8 @@ Output: `exitCode` (0, or the exit code of the first failing command).
 
 # CI / CD
 
-- **GitHub Actions** (`.github/workflows`): tests and typecheck on Linux, Windows and macOS, a dev `.vsix` on every push, and an automatic release on pushes to `trunk` that change code.
-- **Azure Pipelines** (`azure-pipelines.yml`): runs the bundled tasks on real Linux and macOS agents (Phase 7 of [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)).
+- **GitHub Actions** (`.github/workflows`): `ci.yml` runs tests and typecheck on Linux, Windows and macOS and builds a dev `.vsix`; `validate-tasks.yml` runs the four bundled tasks end to end (real SDKMAN, real JDK downloads) on Linux, macOS and Windows runners; `release.yml` releases on pushes to `trunk` that change code.
+- **Azure Pipelines** (`azure-pipelines.yml`): the same validation on Azure hosted agents. It has not been run on Azure yet; the GitHub Actions workflow is the verified equivalent.
 
 # Disclaimer
 

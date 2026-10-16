@@ -28,7 +28,7 @@ describe("platform", () => {
   it("explains how to install missing tools per OS", () => {
     expect(missingToolsMessage(["zip", "unzip"], "linux")).toContain("apt-get install -y curl zip unzip");
     expect(missingToolsMessage(["zip"], "darwin")).toContain("brew install");
-    expect(missingToolsMessage(["unzip"], "win32")).toContain("Git Bash does not ship");
+    expect(missingToolsMessage(["zip"], "win32")).toContain("pacman.exe -S --noconfirm zip");
   });
 
   it("explains how to get a modern bash", () => {

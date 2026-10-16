@@ -1,7 +1,8 @@
-# Valida las tareas en agentes reales de Azure Pipelines (Linux y macOS).
+# Valida las tareas en agentes de Azure Pipelines (Linux, macOS y Windows).
 # Ejecuta los bundles tal como los empaqueta la extensión (scripts/run-task.js); el agente interpreta los
 # ##vso que imprimen (PATH, variables, resultado). El .vsix final lo genera GitHub Actions.
-# Windows (Git Bash) no se valida todavía: ver docs/IMPLEMENTATION_PLAN.md (Fase 7).
+# macOS y Windows necesitan un paso de prerrequisitos (bash 4+, zip): ver README.
+# Aún no se ha ejecutado en Azure Pipelines (solo en los mismos runners vía GitHub Actions: validate-tasks.yml).
 trigger:
   branches:
     include: [trunk]
@@ -41,12 +42,14 @@ stages:
       - job: validate
         displayName: Validate on
         strategy:
-          maxParallel: 2
+          maxParallel: 3
           matrix:
             linux:
               vmImage: ubuntu-latest
             macos:
               vmImage: macOS-latest
+            windows:
+              vmImage: windows-latest
         pool:
           vmImage: $(vmImage)
         variables:
@@ -59,23 +62,40 @@ stages:
           - download: current
             artifact: tasks
 
-          # --- SdkmanSetup (macOS: comprueba que hay un bash >= 4 o falla con el mensaje de brew)
+          # --- Prerrequisitos documentados en el README (verificados en los runners hospedados con GitHub Actions)
+          # macOS trae solo bash 3.2; SDKMAN exige >= 4. Sin comillas $(...) para que Azure no lo trate como macro.
+          - script: |
+              brew install bash
+              BREW_BIN=`brew --prefix`/bin
+              echo "##vso[task.prependpath]$BREW_BIN"
+            displayName: Prerequisite - bash 4+ (macOS)
+            condition: eq(variables['Agent.OS'], 'Darwin')
+          # Git Bash de windows-latest no trae zip (unzip y curl sí).
+          - script: |
+              C:\msys64\usr\bin\pacman.exe -S --noconfirm zip
+              copy /Y C:\msys64\usr\bin\zip.exe "C:\Program Files\Git\usr\bin\zip.exe"
+              if not exist "C:\Program Files\Git\usr\bin\msys-bz2-1.dll" copy C:\msys64\usr\bin\msys-bz2-1.dll "C:\Program Files\Git\usr\bin\"
+            displayName: Prerequisite - zip in Git Bash (Windows)
+            condition: eq(variables['Agent.OS'], 'Windows_NT')
+
+          # Los comandos van con "\n" literal: run-task.js lo convierte en salto de línea (%0A lo interpretaría cmd.exe).
+          # --- SdkmanSetup
           - script: node scripts/run-task.js sdkman-setup
             name: sdkmansetup
             displayName: SdkmanSetup
-          - script: node scripts/expect.js 'bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk version"' "script:"
+          - script: node scripts/expect.js "bash -c 'source $SDKMAN_DIR/bin/sdkman-init.sh && sdk version'" "script:"
             displayName: SDKMAN_DIR is usable from a script step
+            condition: ne(variables['Agent.OS'], 'Windows_NT')
 
-          # --- SdkmanInstall: dos JDK, el primero activo
-          - script: node scripts/run-task.js sdkman-install "candidates=java 21.0.5-tem%0Ajava 17.0.13-tem%0Amaven 3.9.9"
+          # --- SdkmanInstall: dos JDK (el primero activo) y maven
+          - script: node scripts/run-task.js sdkman-install "candidates=java 21.0.5-tem\njava 17.0.13-tem\nmaven 3.9.9"
             name: sdkmaninstall
             displayName: SdkmanInstall java 21 + 17, maven
+          # Los agentes traen su propio Java/Maven: solo pasan si el PATH de SDKMAN se antepone.
           - script: node scripts/expect.js "java -version" "21.0.5"
             displayName: Active java is 21
-          - script: node scripts/expect.js "mvn -v" "Apache Maven 3.9.9"
-            displayName: maven is on the PATH
-          - script: node scripts/expect.js 'echo $JAVA_HOME' "candidates/java/21.0.5-tem"
-            displayName: JAVA_HOME points to the active JDK
+          - script: 'node scripts/expect.js "mvn -v" "Java version: 21.0.5"'
+            displayName: maven runs on the active JDK (JAVA_HOME)
           - script: node scripts/run-task.js sdkman-install "candidates=java 21.0.5-tem"
             displayName: SdkmanInstall is idempotent
 
@@ -86,7 +106,7 @@ stages:
             displayName: Active java is 17 (from .sdkmanrc)
 
           # --- SdkmanRun: modo sdk y modo shell (el shell ve el mismo JAVA_HOME que los pasos siguientes)
-          - script: node scripts/run-task.js sdkman-run "commands=version%0Alist maven"
+          - script: node scripts/run-task.js sdkman-run "commands=version\nhome java 21.0.5-tem"
             displayName: SdkmanRun (sdk mode)
-          - script: node scripts/run-task.js sdkman-run mode=shell 'commands=java -version%0Amvn -v'
+          - script: node scripts/run-task.js sdkman-run mode=shell "commands=java -version\nmvn -v"
             displayName: SdkmanRun (shell mode)

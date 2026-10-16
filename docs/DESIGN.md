@@ -101,8 +101,10 @@ Ejecutados en Linux x64 (ubuntu, bash 5.2) con `HOME` y `SDKMAN_DIR` aislados. S
 | 8 | Colores / auto_answer | **Corrección tras implementar**: ni `sdkman_colour_enable` ni `sdkman_auto_answer` se respetan por entorno ni asignados tras el `source`, porque `sdk()` recarga `etc/config` en cada llamada (el spike 8 original concluyó mal que `NO_COLOR` funcionaba: ese test ya tenía el config modificado). Lo que sí funciona: stdin cerrado, y limpiar la salida en Node. |
 | 9 | Override de API | `SDKMAN_CANDIDATES_API` se respeta (definido en `sdkman-init.sh`); sirve para mirrors y para simular caída. |
 | 10 | Tiempos | `sdk install java 21.0.5-tem` ≈ 40 s en este entorno; maven, pocos segundos. Timeouts por defecto de tarea: setup 120 s, install 600 s. |
-| 11 | macOS | El instalador **exige bash ≥ 4** (aborta con mensaje) y macOS trae 3.2. No pude probar los runners hosted de macOS: si no traen bash ≥ 4 en el PATH, la tarea debe fallar con instrucción `brew install bash` o localizarlo en `/opt/homebrew/bin` / `/usr/local/bin`. Pendiente de verificar en la Fase 7. |
-| 12 | Windows | No probado aquí; la documentación oficial indica que no hay soporte nativo (Git Bash + MinGW/MSYS o WSL), que Git Bash no trae `zip`/`unzip` y que el instalador rechaza Cygwin. **Decisión: Windows fuera de v1**; la tarea falla pronto con un mensaje claro ("SDKMAN no soporta agentes Windows; usa Linux/macOS o WSL"). Se reevalúa después de v1 con un spike en `windows-latest`. |
+| 11 | macOS (**verificado en Fase 7**: `macos-latest` solo trae `/bin/bash` 3.2; sin brew bash la tarea falla con el mensaje `brew install bash`; con él pasa todo) |
+| 11-orig | macOS | El instalador **exige bash ≥ 4** (aborta con mensaje) y macOS trae 3.2. No pude probar los runners hosted de macOS: si no traen bash ≥ 4 en el PATH, la tarea debe fallar con instrucción `brew install bash` o localizarlo en `/opt/homebrew/bin` / `/usr/local/bin`. Pendiente de verificar en la Fase 7. |
+| 12 | Windows (**verificado en Fase 7 en `windows-latest`**: Git Bash 5.3 en `C:\Program Files\Git\bin\bash.exe`, `uname -s` = `MINGW64_NT` (no choca con la guarda de Cygwin), `unzip` y `curl` presentes, **`zip` ausente**; instalándolo con MSYS2 pacman y copiándolo a Git `usr\bin`, Setup + Install funcionan, incluida la conversión de rutas con `cygpath`; `JAVA_HOME` sale como `C:\hostedtoolcache\windows\sdkman\candidates\java\21.0.5-tem`). Decisión revisada: **Windows soportado con prerrequisito documentado (zip)**; ya no está fuera de v1) |
+| 12-orig | Windows | No probado aquí; la documentación oficial indica que no hay soporte nativo (Git Bash + MinGW/MSYS o WSL), que Git Bash no trae `zip`/`unzip` y que el instalador rechaza Cygwin. **Decisión: Windows fuera de v1**; la tarea falla pronto con un mensaje claro ("SDKMAN no soporta agentes Windows; usa Linux/macOS o WSL"). Se reevalúa después de v1 con un spike en `windows-latest`. |
 
 ### Cambios que esto introduce en el diseño
 
@@ -110,7 +112,7 @@ Ejecutados en Linux x64 (ubuntu, bash 5.2) con `HOME` y `SDKMAN_DIR` aislados. S
 - La tarea ejecuta todo con stdin cerrado y limpia la salida (colores, barra de progreso).
 - `setAsDefault` deja de ser un interruptor: `sdk install` siempre mueve `current`; solo reordenamos con `sdk default` al final para coherencia.
 - F1.7 (fijar versión del CLI) pasa a P2 y se implementa sustituyendo `SDKMAN_VERSION` en el script.
-- Windows sale de v1 (F5.4 → P2); el error es explícito.
+- Windows: la decisión original (fuera de v1) se revisó tras la Fase 7: funciona con `zip` instalado en Git Bash (documentado en el README).
 
 ## Riesgos que siguen abiertos
 

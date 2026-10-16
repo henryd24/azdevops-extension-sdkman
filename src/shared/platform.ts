@@ -50,8 +50,9 @@ export function missingToolsMessage(missing: string[], osName: SdkmanOs): string
       "`apk add bash curl zip unzip` (Alpine) or `dnf install -y curl zip unzip` (Fedora/RHEL).",
     darwin: "Install them with Homebrew, e.g. `brew install curl zip unzip`.",
     win32:
-      "Git Bash does not ship `zip`/`unzip`: install them (for example from MSYS2 or GnuWin32) into Git's `usr\\bin` or `mingw64\\bin` folder " +
-      "so they are on the PATH of Git Bash. The Azure Pipelines agent also needs `unzip` support to unpack tools.",
+      "Git Bash does not always ship them (on the hosted windows-latest image `zip` is missing; `unzip` and `curl` are present). " +
+      "Install the missing ones so they are on the PATH of Git Bash, for example: `C:\\msys64\\usr\\bin\\pacman.exe -S --noconfirm zip` " +
+      "and copy `zip.exe` into `C:\\Program Files\\Git\\usr\\bin`.",
   };
   return `SDKMAN needs ${list} on the agent. ${hints[osName]}`;
 }

@@ -1,6 +1,6 @@
 # SDKMAN Manager — contexto para Claude
 
-Extensión de Azure DevOps (publisher `hendamm`) que instala **SDKMAN!** y herramientas JVM (Java, Gradle, Maven, Kotlin...) en agentes Linux/macOS (Windows vía Git Bash, mejor esfuerzo). Basada en el patrón de `azdevops-extension-uvpy-manager`. Idioma de trabajo con el usuario: español. Lo público va en inglés: `README.md` (principal), `task.json` y toda la salida de las tareas; `README.es.md` es la versión en español y debe mantenerse en paralelo. Comentarios internos y `docs/` en español.
+Extensión de Azure DevOps (publisher `hendamm`) que instala **SDKMAN!** y herramientas JVM (Java, Gradle, Maven, Kotlin...) en agentes Linux/macOS (Windows vía Git Bash; requiere `zip`, ver README). Basada en el patrón de `azdevops-extension-uvpy-manager`. Idioma de trabajo con el usuario: español. Lo público va en inglés: `README.md` (principal), `task.json` y toda la salida de las tareas; `README.es.md` es la versión en español y debe mantenerse en paralelo. Comentarios internos y `docs/` en español.
 
 ## Estado
 
@@ -34,3 +34,8 @@ node scripts/run-task.js sdkman-install "candidates=java 21.0.5-tem"   # tras pa
 - `sdk install` siempre mueve `current`; se exportan rutas explícitas `candidates/<c>/<v>` y, con varias versiones, se restaura `current` con `sdk default`.
 - El instalador se descarga de `https://get.sdkman.io?rcupdate=false` (sin el parámetro modifica `~/.bashrc`) y exige bash >= 4 (macOS trae 3.2).
 - Rutas con `path.join` explícito (los tests corren en Windows). Nunca `rm -rf` sobre variables de entorno sin resolver al probar en local: usa directorios nuevos.
+
+## Validación en runners reales
+
+`.github/workflows/validate-tasks.yml` ejecuta las 4 tareas en ubuntu/macOS/Windows (mismas imágenes que Azure hosted) y aplica los `##vso` con `scripts/apply-vso.js`. Hechos verificados: macOS hospedado solo trae bash 3.2 (hace falta `brew install bash`); Windows hospedado tiene Git Bash con `unzip`/`curl` pero sin `zip` (MSYS2 `pacman -S zip` + copiar `zip.exe` a `C:\Program Files\Git\usr\bin`). `azure-pipelines.yml` aún no se ha ejecutado en Azure.
+- Pasar `npm test` completo antes de subir: `jest` falla si una tarea no tiene tests (`sdkman-setup` lo hizo en CI); no filtres la salida con `grep` sin mirar el exit code.
