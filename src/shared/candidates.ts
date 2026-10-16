@@ -8,8 +8,8 @@ export interface CandidateRequest {
   version?: string;
 }
 
-const CANDIDATE_RE = /^[A-Za-z][A-Za-z0-9_-]*$/;
-const VERSION_RE = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/;
+export const CANDIDATE_RE = /^[A-Za-z][A-Za-z0-9_-]*$/;
+export const VERSION_RE = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/;
 
 /**
  * Una entrada por línea: `candidate [version]`. Se ignoran líneas vacías y comentarios (`#`).
@@ -38,4 +38,27 @@ export function parseCandidates(text: string | undefined): CandidateRequest[] {
 /** java -> JAVA_HOME, spring-boot -> SPRING_BOOT_HOME (convención de SDKMAN para `sdk home`). */
 export function homeVariableName(candidate: string): string {
   return `${candidate.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_HOME`;
+}
+
+/**
+ * `.sdkmanrc`: `candidate=version` por línea (`#` comenta). A diferencia de `parseCandidates`, la versión es
+ * obligatoria y cada candidate puede aparecer una sola vez (SDKMAN activa una versión por candidate).
+ */
+export function parseSdkmanrc(content: string): CandidateRequest[] {
+  const result: CandidateRequest[] = [];
+  const seen = new Set<string>();
+  for (const raw of content.split(/\r?\n/)) {
+    const line = raw.replace(/#.*$/, "").trim();
+    if (!line) continue;
+    const idx = line.indexOf("=");
+    const candidate = (idx < 0 ? line : line.slice(0, idx)).trim();
+    const version = idx < 0 ? "" : line.slice(idx + 1).trim();
+    if (!candidate || !version) throw new Error(`Invalid .sdkmanrc line '${line}'. Expected '<candidate>=<version>'.`);
+    if (!CANDIDATE_RE.test(candidate)) throw new Error(`Invalid candidate name '${candidate}' in .sdkmanrc.`);
+    if (!VERSION_RE.test(version)) throw new Error(`Invalid version '${version}' for '${candidate}' in .sdkmanrc.`);
+    if (seen.has(candidate.toLowerCase())) throw new Error(`'${candidate}' is listed more than once in .sdkmanrc.`);
+    seen.add(candidate.toLowerCase());
+    result.push({ candidate: candidate.toLowerCase(), version });
+  }
+  return result;
 }

@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { CandidateRequest } from "../../../../shared/candidates";
+import { CandidateRequest } from "./candidates";
 
 export interface InstalledCandidate {
   candidate: string;

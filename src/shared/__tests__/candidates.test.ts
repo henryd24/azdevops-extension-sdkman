@@ -1,4 +1,4 @@
-import { homeVariableName, parseCandidates } from "../candidates";
+import { homeVariableName, parseCandidates, parseSdkmanrc } from "../candidates";
 
 describe("parseCandidates", () => {
   it("parses one candidate per line, with comments and blanks", () => {
@@ -40,5 +40,27 @@ describe("homeVariableName", () => {
     ["spring-boot", "SPRING_BOOT_HOME"],
   ])("%s -> %s", (candidate, expected) => {
     expect(homeVariableName(candidate)).toBe(expected);
+  });
+});
+
+describe("parseSdkmanrc", () => {
+  it("parses candidate=version lines, comments and blanks", () => {
+    expect(parseSdkmanrc("# header\njava=17.0.13-tem\n\nmaven = 3.9.9  # build\r\n")).toEqual([
+      { candidate: "java", version: "17.0.13-tem" },
+      { candidate: "maven", version: "3.9.9" },
+    ]);
+  });
+  it("returns an empty list for an empty file", () => {
+    expect(parseSdkmanrc("\n# nothing\n")).toEqual([]);
+  });
+  it.each([
+    ["java", "Expected '<candidate>=<version>'"],
+    ["java=", "Expected '<candidate>=<version>'"],
+    ["=17", "Expected '<candidate>=<version>'"],
+    ["java=17;rm", "Invalid version"],
+    ["ja va=17", "Invalid candidate name"],
+    ["java=17\njava=21", "more than once"],
+  ])("rejects %j", (input, message) => {
+    expect(() => parseSdkmanrc(input)).toThrow(message);
   });
 });

@@ -1,0 +1,123 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
+  "category": "Utility",
+  "author": "Henry Daniel Mosquera",
+  "version": {
+    "Major": 0,
+    "Minor": 1,
+    "Patch": 0
+  },
+  "visibility": [
+    "Build",
+    "Release"
+  ],
+  "id": "c16974c9-545b-462e-a506-40375b123474",
+  "name": "SdkmanEnv",
+  "friendlyName": "Configure tools from .sdkmanrc (SDKMAN)",
+  "description": "Install and activate the tool versions listed in a .sdkmanrc file",
+  "helpMarkDown": "Reads `.sdkmanrc` (`java=21.0.5-tem`), installs what is missing with SDKMAN and activates those versions for the following steps (`JAVA_HOME`, `PATH`...). Same result as `sdk env install`, but it persists between steps.",
+  "instanceNameFormat": "Configure tools from .sdkmanrc",
+  "groups": [
+    {
+      "name": "advanced",
+      "displayName": "Advanced",
+      "isExpanded": false
+    }
+  ],
+  "inputs": [
+    {
+      "name": "sdkmanrcPath",
+      "type": "string",
+      "label": ".sdkmanrc path",
+      "defaultValue": ".sdkmanrc",
+      "required": false,
+      "helpMarkDown": "Relative to the working directory. Useful in monorepos (`services/api/.sdkmanrc`)."
+    },
+    {
+      "name": "strict",
+      "type": "boolean",
+      "label": "Fail if there is no .sdkmanrc",
+      "defaultValue": "true",
+      "required": false,
+      "helpMarkDown": "When off, a missing or empty file only produces a warning and the step is skipped."
+    },
+    {
+      "name": "autoInstallSdkman",
+      "type": "boolean",
+      "label": "Install SDKMAN if missing",
+      "defaultValue": "true",
+      "required": false,
+      "helpMarkDown": "Installs SDKMAN when it is not on the agent. When off, the task fails if SDKMAN is missing (use SdkmanSetup first)."
+    },
+    {
+      "name": "setHomeVariables",
+      "type": "boolean",
+      "label": "Set <CANDIDATE>_HOME variables",
+      "defaultValue": "true",
+      "required": false,
+      "helpMarkDown": "Exports `JAVA_HOME`, `GRADLE_HOME`, `MAVEN_HOME`... for each candidate in the file."
+    },
+    {
+      "name": "addToPath",
+      "type": "boolean",
+      "label": "Add to PATH",
+      "defaultValue": "true",
+      "required": false,
+      "helpMarkDown": "Prepends the `bin` folder of each candidate to the PATH."
+    },
+    {
+      "name": "sdkmanDir",
+      "type": "string",
+      "label": "SDKMAN directory",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Where SDKMAN lives (`SDKMAN_DIR`). Empty = the `SDKMAN_DIR` already set by an earlier step, an existing `~/.sdkman`, or `<Agent.ToolsDirectory>/sdkman`."
+    },
+    {
+      "name": "installUrl",
+      "type": "string",
+      "label": "Installer URL",
+      "defaultValue": "https://get.sdkman.io?rcupdate=false",
+      "required": false,
+      "helpMarkDown": "Official installer, or an internal mirror for agents without internet access. Keep `rcupdate=false` so the agent's `~/.bashrc` is not modified.",
+      "groupName": "advanced"
+    },
+    {
+      "name": "candidatesApi",
+      "type": "string",
+      "label": "Candidates API",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Overrides `SDKMAN_CANDIDATES_API` (default `https://api.sdkman.io/2`), for a mirror of the SDKMAN API.",
+      "groupName": "advanced"
+    },
+    {
+      "name": "bashPath",
+      "type": "string",
+      "label": "bash path",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Path to a bash 4+ executable. Empty = auto-detect (Homebrew bash on macOS, Git Bash on Windows).",
+      "groupName": "advanced"
+    }
+  ],
+  "outputVariables": [
+    {
+      "name": "sdkmanDir",
+      "description": "SDKMAN_DIR used by this job"
+    },
+    {
+      "name": "sdkmanInstalled",
+      "description": "JSON list of {candidate, version, home, installedNow, active}"
+    }
+  ],
+  "execution": {
+    "Node20_1": {
+      "target": "index.js"
+    },
+    "Node24": {
+      "target": "index.js"
+    }
+  },
+  "minimumAgentVersion": "4.248.0"
+}

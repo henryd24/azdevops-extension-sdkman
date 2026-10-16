@@ -49,7 +49,7 @@ Entregable (cumplido): sección "Resultados de la Fase 0" en `DESIGN.md`, riesgo
 - Features: F2.1–F2.6, F2.9.
 - **Hecho cuando**: el ejemplo "caso básico" de FEATURES.md compila un proyecto Maven mínimo en `tests/fixtures/`.
 
-## Fase 4 · `SdkmanEnv` (`.sdkmanrc`)
+## Fase 4 · `SdkmanEnv` (`.sdkmanrc`) — HECHA (Linux x64)
 
 - `shared/sdkmanrc.ts`: parser (comentarios `#`, `candidate=version`, espacios).
 - La tarea reutiliza el flujo de instalación de la Fase 3 con las entradas del archivo.
@@ -58,7 +58,7 @@ Entregable (cumplido): sección "Resultados de la Fase 0" en `DESIGN.md`, riesgo
 - Features: F3.1–F3.4.
 - **Hecho cuando**: un repo con `.sdkmanrc` se construye con `SdkmanEnv` + `./gradlew build` sin otros pasos.
 
-## Fase 5 · `SdkmanRun`
+## Fase 5 · `SdkmanRun` — HECHA (Linux x64; el test de no-inyección es de unidad y e2e)
 
 - Modo `sdk` (por defecto): cada línea → tokenizar → `runSdk`. Salida agrupada, `failOnError`, `workingDirectory`, `env`.
 - Modo `shell` (opt-in): `bash -c` con el entorno SDKMAN cargado y `*_HOME`/PATH ya exportados.

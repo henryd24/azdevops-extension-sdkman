@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { InstallDeps, installCandidates } from "../utils/install";
+import { InstallDeps, installCandidates } from "../install";
 
 function makeDeps(overrides: Partial<InstallDeps> = {}) {
   const installedDirs = new Set<string>();

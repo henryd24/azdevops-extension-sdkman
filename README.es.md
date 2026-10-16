@@ -6,14 +6,15 @@
 
 Extensión de Azure DevOps para instalar y configurar herramientas JVM en tus pipelines con [SDKMAN!](https://sdkman.io): Java (cualquier distribución), Gradle, Maven, Kotlin, Scala, Groovy, Spring Boot CLI... todo lo que muestra `sdk list`.
 
-Sin una tarea instaladora por herramienta y sin scripts a mano: dos tareas pequeñas que se encadenan.
+Sin una tarea instaladora por herramienta y sin scripts a mano: cuatro tareas pequeñas que se encadenan.
 
 | Tarea | Qué hace |
 | ----- | -------- |
 | `SdkmanSetup` | Instala SDKMAN (o reutiliza una instalación existente) sin tocar los perfiles de shell y expone `SDKMAN_DIR`. Opcional: `SdkmanInstall` puede hacerlo solo. |
 | `SdkmanInstall` | Instala candidates (`java 21.0.5-tem`, `gradle 8.11`, `maven`...) y exporta `JAVA_HOME`, `GRADLE_HOME`... y el `PATH` para los pasos siguientes. |
 
-> Próximamente: `SdkmanEnv` (instalar lo que pida un `.sdkmanrc`) y `SdkmanRun` (ejecutar comandos `sdk`). Ver [`docs/`](docs/).
+| `SdkmanEnv` | Lee un `.sdkmanrc`, instala lo que lista y lo activa para los pasos siguientes: el repositorio decide las versiones, en local y en CI. |
+| `SdkmanRun` | Ejecuta comandos `sdk` (`list`, `current`, `flush`, `home`...) o cualquier comando con SDKMAN cargado. |
 
 > **No está publicada en el Marketplace.** Es un proyecto comunitario distribuido como código fuente. Constrúyela con tu propio publisher e instálala de forma privada en tu organización (ver el [README en inglés](README.md#install-in-your-organization)). Se ofrece tal cual, sin soporte.
 
@@ -74,6 +75,50 @@ steps:
       sdk list java | head
 ```
 
+## El repositorio manda: `.sdkmanrc`
+
+Versiona un `.sdkmanrc` (el mismo archivo que lee `sdk env` en local):
+
+```
+java=21.0.5-tem
+gradle=8.11
+```
+
+y el pipeline solo lo sigue:
+
+```yaml
+steps:
+  - task: SdkmanEnv@0
+  - script: ./gradlew build
+```
+
+En un monorepo indica la ruta: `sdkmanrcPath: services/api/.sdkmanrc`. Con `strict: false`, un archivo ausente solo avisa y omite el paso.
+
+## Ejecutar comandos `sdk`
+
+```yaml
+steps:
+  - task: SdkmanRun@0
+    inputs:
+      commands: |
+        version
+        list java
+        home java 21.0.5-tem
+```
+
+Cada línea llega a `sdk` **como argumentos**, nunca interpolada en un string de shell: valores con `;`, `$(...)` o comillas son inertes. Para comandos libres con SDKMAN cargado usa `mode: shell`; cada línea la interpreta bash, así que no pongas valores no confiables (por ejemplo variables del pipeline que vengan de títulos de pull requests):
+
+```yaml
+  - task: SdkmanRun@0
+    inputs:
+      mode: shell
+      commands: |
+        java -version
+        mvn -v
+```
+
+En ambos modos los comandos ven el mismo `JAVA_HOME` y `PATH` que los pasos siguientes (las versiones activadas por `SdkmanInstall` / `SdkmanEnv`). Ojo: `sdk current` informa los *defaults* de SDKMAN, que pueden diferir de los activados para el job si instalaste varias versiones.
+
 ## Caché entre ejecuciones
 
 En agentes hospedados, cachea `SDKMAN_DIR` con `Cache@2` para no descargar los JDK en cada ejecución (ejemplo completo en el [README en inglés](README.md#caching-between-runs)). Una versión instalada se detecta en disco: con la caché restaurada no hay descarga.
@@ -106,6 +151,29 @@ Outputs: `sdkmanDir`, `sdkmanInstalled` (JSON). Variables para los pasos siguien
 - La instalación es idempotente: una versión que ya está en disco no se vuelve a descargar.
 - `sdk install` siempre mueve el enlace `current` de SDKMAN a la versión recién instalada; si pides varias versiones de un candidate, la tarea devuelve `current` a la primera.
 - La tarea no modifica tus perfiles de shell y no lee stdin, así que no puede quedarse bloqueada en una pregunta.
+
+## SdkmanEnv
+
+| Input | Por defecto | Descripción |
+| ----- | ----------- | ----------- |
+| `sdkmanrcPath` | `.sdkmanrc` | Relativo al directorio de trabajo. |
+| `strict` | `true` | Falla si el archivo falta o está vacío. Si se desactiva, el paso se omite con un aviso. |
+| `autoInstallSdkman`, `setHomeVariables`, `addToPath` | `true` | Como en `SdkmanInstall`. |
+| `sdkmanDir`, `installUrl`, `candidatesApi`, `bashPath` | | Como en `SdkmanSetup`. |
+
+Formato: un `candidate=versión` por línea, comentarios con `#`. La versión es obligatoria y cada candidate aparece una vez. Outputs: `sdkmanDir`, `sdkmanInstalled` (JSON).
+
+## SdkmanRun
+
+| Input | Por defecto | Descripción |
+| ----- | ----------- | ----------- |
+| `commands` | (obligatorio) | Uno por línea. En modo `sdk` el prefijo `sdk` es opcional. Cada línea se ejecuta por separado. |
+| `mode` | `sdk` | `sdk`: argumentos pasados a `sdk` de forma segura. `shell`: cada línea la interpreta bash con SDKMAN cargado. |
+| `workingDirectory` | `$(System.DefaultWorkingDirectory)` | Dónde se ejecutan. |
+| `env` | | `KEY=VALUE` por línea para los comandos. |
+| `failOnError` | `true` | Se detiene en el primer comando que falla y falla la tarea; si se desactiva, corre todos y termina con avisos. |
+
+Output: `exitCode` (0, o el del primer comando que falló).
 
 # Aviso
 

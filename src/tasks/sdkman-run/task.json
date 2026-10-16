@@ -1,0 +1,139 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
+  "category": "Utility",
+  "author": "Henry Daniel Mosquera",
+  "version": {
+    "Major": 0,
+    "Minor": 1,
+    "Patch": 0
+  },
+  "visibility": [
+    "Build",
+    "Release"
+  ],
+  "id": "7273d45b-40f7-4513-9678-9c7a552dc880",
+  "name": "SdkmanRun",
+  "friendlyName": "Run SDKMAN commands",
+  "description": "Run sdk commands, or any command with SDKMAN loaded, in your pipeline",
+  "helpMarkDown": "In `sdk` mode every line is an `sdk` command (`list java`, `current`, `flush`, `home java 21.0.5-tem`), passed as arguments with no shell interpolation. In `shell` mode every line is a shell command run with SDKMAN loaded.",
+  "instanceNameFormat": "Run SDKMAN commands",
+  "groups": [
+    {
+      "name": "advanced",
+      "displayName": "Advanced",
+      "isExpanded": false
+    }
+  ],
+  "inputs": [
+    {
+      "name": "commands",
+      "type": "multiLine",
+      "label": "Commands",
+      "defaultValue": "",
+      "required": true,
+      "helpMarkDown": "One per line. In `sdk` mode the `sdk` prefix is optional: `list java` or `sdk list java`. Each line runs on its own (in `shell` mode multi-line constructs such as `if ... fi` are not supported: use a script step). `#` lines are ignored.",
+      "properties": {
+        "resizable": "true",
+        "rows": "4"
+      }
+    },
+    {
+      "name": "mode",
+      "type": "pickList",
+      "label": "Mode",
+      "defaultValue": "sdk",
+      "required": false,
+      "options": {
+        "sdk": "sdk - run sdk commands",
+        "shell": "shell - run commands with SDKMAN loaded"
+      },
+      "helpMarkDown": "`sdk`: arguments are passed to `sdk` safely. `shell`: each line is interpreted by bash, so only use trusted values in it (for example, never put untrusted pipeline variables there)."
+    },
+    {
+      "name": "workingDirectory",
+      "type": "filePath",
+      "label": "Working directory",
+      "defaultValue": "$(System.DefaultWorkingDirectory)",
+      "required": false,
+      "helpMarkDown": "Directory where the commands run."
+    },
+    {
+      "name": "env",
+      "type": "multiLine",
+      "label": "Environment variables",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "`KEY=VALUE` per line, set for the commands.",
+      "properties": {
+        "resizable": "true",
+        "rows": "3"
+      }
+    },
+    {
+      "name": "failOnError",
+      "type": "boolean",
+      "label": "Fail on error",
+      "defaultValue": "true",
+      "required": false,
+      "helpMarkDown": "Stops at the first command that fails and fails the task. When off, every command runs and failures end the task with warnings."
+    },
+    {
+      "name": "autoInstallSdkman",
+      "type": "boolean",
+      "label": "Install SDKMAN if missing",
+      "defaultValue": "true",
+      "required": false,
+      "helpMarkDown": "Installs SDKMAN when it is not on the agent. When off, the task fails if SDKMAN is missing (use SdkmanSetup first)."
+    },
+    {
+      "name": "sdkmanDir",
+      "type": "string",
+      "label": "SDKMAN directory",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Where SDKMAN lives (`SDKMAN_DIR`). Empty = the `SDKMAN_DIR` already set by an earlier step, an existing `~/.sdkman`, or `<Agent.ToolsDirectory>/sdkman`."
+    },
+    {
+      "name": "installUrl",
+      "type": "string",
+      "label": "Installer URL",
+      "defaultValue": "https://get.sdkman.io?rcupdate=false",
+      "required": false,
+      "helpMarkDown": "Official installer, or an internal mirror for agents without internet access. Keep `rcupdate=false` so the agent's `~/.bashrc` is not modified.",
+      "groupName": "advanced"
+    },
+    {
+      "name": "candidatesApi",
+      "type": "string",
+      "label": "Candidates API",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Overrides `SDKMAN_CANDIDATES_API` (default `https://api.sdkman.io/2`), for a mirror of the SDKMAN API.",
+      "groupName": "advanced"
+    },
+    {
+      "name": "bashPath",
+      "type": "string",
+      "label": "bash path",
+      "defaultValue": "",
+      "required": false,
+      "helpMarkDown": "Path to a bash 4+ executable. Empty = auto-detect (Homebrew bash on macOS, Git Bash on Windows).",
+      "groupName": "advanced"
+    }
+  ],
+  "outputVariables": [
+    {
+      "name": "exitCode",
+      "description": "0 if every command succeeded, otherwise the exit code of the first failing command"
+    }
+  ],
+  "execution": {
+    "Node20_1": {
+      "target": "index.js"
+    },
+    "Node24": {
+      "target": "index.js"
+    }
+  },
+  "minimumAgentVersion": "4.248.0"
+}

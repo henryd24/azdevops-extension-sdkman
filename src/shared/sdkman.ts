@@ -66,14 +66,26 @@ export interface RunSdkResult {
  * por defecto en vez de bloquear el paso. No se pueden forzar `sdkman_auto_answer`/colores desde aquí: `sdk()` vuelve a
  * cargar `etc/config` en cada llamada, y ese archivo es del usuario (en self-hosted puede ser `~/.sdkman`), así que no se toca.
  */
-export const SDK_SCRIPT =
-  "exec </dev/null; " +
-  '[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ] || { echo "SDKMAN is not installed in $SDKMAN_DIR" >&2; exit 97; }; ' +
-  'source "$SDKMAN_DIR/bin/sdkman-init.sh" >/dev/null 2>&1; ' +
-  'sdk "$@"';
+const CHECK_INIT = '[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ] || { echo "SDKMAN is not installed in $SDKMAN_DIR" >&2; exit 97; }; ';
+const SOURCE_INIT = 'source "$SDKMAN_DIR/bin/sdkman-init.sh" >/dev/null 2>&1; ';
+
+export const SDK_SCRIPT = `exec </dev/null; ${CHECK_INIT}${SOURCE_INIT}sdk "$@"`;
+
+/**
+ * Modo shell: `$1` es el comando del usuario (aquí la ejecución de texto libre es el propósito; los args de `sdk` nunca pasan por aquí).
+ * `sdkman-init.sh` reescribe el entorno (antepone `candidates/*\/current/bin` al PATH y fija `JAVA_HOME=.../java/current`). Se guarda el
+ * entorno exportado antes del `source` y se restaura después, para que el comando vea lo mismo que los pasos `script` siguientes
+ * (la versión activa que exportó SdkmanInstall/SdkmanEnv, no `current`) pero con la función `sdk` disponible.
+ */
+export const SHELL_SCRIPT = `exec </dev/null; __sdkman_env="$(export -p)"; ${CHECK_INIT}${SOURCE_INIT}eval "$__sdkman_env" 2>/dev/null; unset __sdkman_env; eval "$1"`;
 
 /** Ejecuta el instalador oficial con stdin cerrado. */
 export const INSTALLER_SCRIPT = 'exec </dev/null; exec bash "$1"';
+
+/** Argumentos de bash para ejecutar un comando de texto libre con SDKMAN cargado. */
+export function shellBashArgs(command: string): string[] {
+  return ["--noprofile", "--norc", "-c", SHELL_SCRIPT, "sdkman-shell", command];
+}
 
 /** Argumentos de bash para ejecutar `sdk <args>`. */
 export function sdkBashArgs(args: string[]): string[] {
@@ -269,7 +281,16 @@ export async function ensureSdkman(options: EnsureSdkmanOptions): Promise<Sdkman
 
 /** Ejecuta `sdk <args>` con SDKMAN cargado. La salida se muestra en vivo (limpia) y se devuelve tal cual en `stdout`. */
 export async function runSdk(sdk: SdkmanInfo, args: string[], options: RunSdkOptions = {}): Promise<RunSdkResult> {
-  const runner = tl.tool(sdk.bash).arg(sdkBashArgs(args));
+  return runBash(sdk, sdkBashArgs(args), `sdk ${args.join(" ")}`, options);
+}
+
+/** Ejecuta un comando de texto libre (`mvn -v`, `java -version`...) con la función `sdk` cargada y el entorno del paso. */
+export async function runShell(sdk: SdkmanInfo, command: string, options: RunSdkOptions = {}): Promise<RunSdkResult> {
+  return runBash(sdk, shellBashArgs(command), command, options);
+}
+
+async function runBash(sdk: SdkmanInfo, bashArgs: string[], label: string, options: RunSdkOptions): Promise<RunSdkResult> {
+  const runner = tl.tool(sdk.bash).arg(bashArgs);
   let stdout = "";
   const cleaner = createOutputCleaner((text) => {
     if (!options.silent) process.stdout.write(text);
@@ -288,7 +309,7 @@ export async function runSdk(sdk: SdkmanInfo, args: string[], options: RunSdkOpt
   } as IExecOptions);
   cleaner.flush();
   if (exitCode !== 0 && options.failOnError !== false) {
-    throw new Error(`'sdk ${args.join(" ")}' failed with exit code ${exitCode}`);
+    throw new Error(`'${label}' failed with exit code ${exitCode}`);
   }
   return { exitCode, stdout };
 }

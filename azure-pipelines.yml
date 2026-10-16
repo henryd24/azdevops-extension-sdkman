@@ -78,3 +78,15 @@ stages:
             displayName: JAVA_HOME points to the active JDK
           - script: node scripts/run-task.js sdkman-install "candidates=java 21.0.5-tem"
             displayName: SdkmanInstall is idempotent
+
+          # --- SdkmanEnv: el .sdkmanrc del fixture (java 17 + maven) manda sobre lo anterior
+          - script: node scripts/run-task.js sdkman-env sdkmanrcPath=tests/fixtures/sample/.sdkmanrc
+            displayName: SdkmanEnv (.sdkmanrc)
+          - script: node scripts/expect.js "java -version" "17.0.13"
+            displayName: Active java is 17 (from .sdkmanrc)
+
+          # --- SdkmanRun: modo sdk y modo shell (el shell ve el mismo JAVA_HOME que los pasos siguientes)
+          - script: node scripts/run-task.js sdkman-run "commands=version%0Alist maven"
+            displayName: SdkmanRun (sdk mode)
+          - script: node scripts/run-task.js sdkman-run mode=shell 'commands=java -version%0Amvn -v'
+            displayName: SdkmanRun (shell mode)

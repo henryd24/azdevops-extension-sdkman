@@ -1,0 +1,3 @@
+# JDK and build tool for this project
+java=17.0.13-tem
+maven=3.9.9
