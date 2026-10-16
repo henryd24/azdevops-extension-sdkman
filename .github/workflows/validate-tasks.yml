@@ -33,10 +33,10 @@ jobs:
     defaults:
       run:
         shell: bash
-    env:
-      LOGS: ${{ runner.temp }}/logs
     steps:
       - uses: actions/checkout@v4
+      # `runner` no existe en el contexto del env a nivel de job: se define aquí.
+      - run: echo "LOGS=$RUNNER_TEMP/logs" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 20
