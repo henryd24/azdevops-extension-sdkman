@@ -130,8 +130,8 @@ jobs:
           set -o pipefail
           node scripts/expect.js "mvn -v" "Apache Maven 3.9.9" 2>&1 | tee "$LOGS/verify-mvn.log"
 
-      # ---- Windows only: if the first attempt failed, install zip/unzip from the runner's MSYS2 and retry ----
-      - name: "Windows retry: install zip/unzip into Git Bash"
+      # ---- Retry after installing the prerequisites: zip/unzip from the runner's MSYS2 (Windows), brew bash (macOS) ----
+      - name: "Retry: install zip/unzip into Git Bash"
         id: winfix
         if: >-
           always() && runner.os == 'Windows' &&
@@ -151,30 +151,46 @@ jobs:
           "/c/Program Files/Git/bin/bash.exe" -c 'for t in zip unzip curl; do command -v $t >/dev/null && echo "$t: yes ($(command -v $t))" || echo "$t: NO"; done; zip -v | head -2; unzip -v | head -1'
           } 2>&1 | tee "$LOGS/winfix.log"
 
-      - name: "Windows retry: SdkmanSetup"
+      - name: "macOS retry: brew install bash"
+        id: macfix
+        if: >-
+          always() && runner.os == 'macOS' &&
+          (steps.setup.outcome == 'failure' || steps.install.outcome == 'failure' ||
+           steps.verify_java.outcome == 'failure' || steps.verify_mvn.outcome == 'failure')
+        continue-on-error: true
+        run: |
+          {
+          brew install bash
+          ls -l /opt/homebrew/bin/bash /usr/local/bin/bash 2>&1 || true
+          BREWBIN="$(brew --prefix)/bin"
+          "$BREWBIN/bash" --version | head -1
+          echo "$BREWBIN" >> "$GITHUB_PATH"
+          } 2>&1 | tee "$LOGS/macfix.log"
+
+      - name: "Retry: SdkmanSetup"
         id: setup2
-        if: always() && steps.winfix.outcome != 'skipped'
+        if: always() && (steps.winfix.outcome != 'skipped' || steps.macfix.outcome != 'skipped')
         continue-on-error: true
         run: |
           set -o pipefail
           node scripts/run-task.js sdkman-setup 2>&1 | tee "$LOGS/setup-retry.log"
 
-      - name: "Windows retry: SdkmanInstall"
+      - name: "Retry: SdkmanInstall"
         id: install2
-        if: always() && steps.winfix.outcome != 'skipped'
+        if: always() && (steps.winfix.outcome != 'skipped' || steps.macfix.outcome != 'skipped')
         continue-on-error: true
         run: |
           set -o pipefail
           node scripts/run-task.js sdkman-install "$CANDIDATES" 2>&1 | tee "$LOGS/install-retry.log"
 
-      - name: "Windows retry: apply exports"
+      - name: "Retry: apply exports"
         id: apply2
         if: always() && steps.install2.outcome == 'success'
         run: |
           set -o pipefail
           "$RUNNER_TEMP/apply-vso.sh" "$LOGS/install-retry.log" 2>&1 | tee "$LOGS/apply-retry.log"
 
-      - name: "Windows retry: verify java"
+      - name: "Retry: verify java"
         id: verify_java2
         if: always() && steps.apply2.outcome == 'success'
         continue-on-error: true
@@ -183,7 +199,7 @@ jobs:
           node scripts/expect.js "java -version" "21.0.5" 2>&1 | tee "$LOGS/verify-java-retry.log"
           echo "$JAVA_HOME" | grep -E 'candidates[/\\]java[/\\]21\.0\.5-tem' | tee -a "$LOGS/verify-java-retry.log"
 
-      - name: "Windows retry: verify maven"
+      - name: "Retry: verify maven"
         id: verify_mvn2
         if: always() && steps.apply2.outcome == 'success'
         continue-on-error: true
@@ -197,7 +213,7 @@ jobs:
           {
           echo "== outcomes"
           echo "setup=${{ steps.setup.outcome }} install=${{ steps.install.outcome }} apply=${{ steps.apply.outcome }} java=${{ steps.verify_java.outcome }} mvn=${{ steps.verify_mvn.outcome }}"
-          echo "winfix=${{ steps.winfix.outcome }} setup2=${{ steps.setup2.outcome }} install2=${{ steps.install2.outcome }} apply2=${{ steps.apply2.outcome }} java2=${{ steps.verify_java2.outcome }} mvn2=${{ steps.verify_mvn2.outcome }}"
+          echo "winfix=${{ steps.winfix.outcome }} macfix=${{ steps.macfix.outcome }} setup2=${{ steps.setup2.outcome }} install2=${{ steps.install2.outcome }} apply2=${{ steps.apply2.outcome }} java2=${{ steps.verify_java2.outcome }} mvn2=${{ steps.verify_mvn2.outcome }}"
           echo "== env"; echo "SDKMAN_DIR=${SDKMAN_DIR:-}"; echo "JAVA_HOME=${JAVA_HOME:-}"
           echo "== ##vso lines in install logs"; grep -h '##vso' "$LOGS"/install*.log 2>/dev/null || true
           } 2>&1 | tee "$LOGS/diag-after.log"
@@ -218,7 +234,7 @@ jobs:
           echo "first attempt passed: $ok_first"
           if [ "$ok_first" = true ]; then exit 0; fi
           echo "FIRST ATTEMPT FAILED"
-          if [ "${{ steps.winfix.outcome }}" != skipped ]; then
+          if [ "${{ steps.winfix.outcome }}" != skipped ] || [ "${{ steps.macfix.outcome }}" != skipped ]; then
             echo "retry after zip/unzip install: setup2=${{ steps.setup2.outcome }} install2=${{ steps.install2.outcome }} java2=${{ steps.verify_java2.outcome }} mvn2=${{ steps.verify_mvn2.outcome }}"
           fi
           exit 1
