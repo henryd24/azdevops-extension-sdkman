@@ -55,7 +55,6 @@ jobs:
             esac
           done < "$log"
           SH
-          sed -i 's/^          //' "$RUNNER_TEMP/apply-vso.sh"
           chmod +x "$RUNNER_TEMP/apply-vso.sh"
 
       - name: Diagnostics (before)
@@ -88,7 +87,8 @@ jobs:
 
       - name: Install and bundle
         run: |
-          npm ci
+          # The lock file on the branch may be out of sync (azde-scripts transitive deps): fall back to npm install.
+          npm ci || { echo "::warning::npm ci failed (lock out of sync); falling back to npm install"; npm install --no-audit --no-fund; }
           npm run package:tasks
 
       - name: SdkmanSetup
@@ -116,13 +116,19 @@ jobs:
         id: verify_java
         if: always() && steps.apply.outcome == 'success'
         continue-on-error: true
-        run: node scripts/expect.js "java -version" "21.0.5" 2>&1 | tee "$LOGS/verify-java.log"
+        run: |
+          set -o pipefail
+          echo "JAVA_HOME=$JAVA_HOME"
+          node scripts/expect.js "java -version" "21.0.5" 2>&1 | tee "$LOGS/verify-java.log"
+          echo "$JAVA_HOME" | grep -E 'candidates[/\\]java[/\\]21\.0\.5-tem' | tee -a "$LOGS/verify-java.log"
 
       - name: Verify maven
         id: verify_mvn
         if: always() && steps.apply.outcome == 'success'
         continue-on-error: true
-        run: node scripts/expect.js "mvn -v" "Apache Maven 3.9.9" 2>&1 | tee "$LOGS/verify-mvn.log"
+        run: |
+          set -o pipefail
+          node scripts/expect.js "mvn -v" "Apache Maven 3.9.9" 2>&1 | tee "$LOGS/verify-mvn.log"
 
       # ---- Windows only: if the first attempt failed, install zip/unzip from the runner's MSYS2 and retry ----
       - name: "Windows retry: install zip/unzip into Git Bash"
@@ -172,13 +178,18 @@ jobs:
         id: verify_java2
         if: always() && steps.apply2.outcome == 'success'
         continue-on-error: true
-        run: node scripts/expect.js "java -version" "21.0.5" 2>&1 | tee "$LOGS/verify-java-retry.log"
+        run: |
+          set -o pipefail
+          node scripts/expect.js "java -version" "21.0.5" 2>&1 | tee "$LOGS/verify-java-retry.log"
+          echo "$JAVA_HOME" | grep -E 'candidates[/\\]java[/\\]21\.0\.5-tem' | tee -a "$LOGS/verify-java-retry.log"
 
       - name: "Windows retry: verify maven"
         id: verify_mvn2
         if: always() && steps.apply2.outcome == 'success'
         continue-on-error: true
-        run: node scripts/expect.js "mvn -v" "Apache Maven 3.9.9" 2>&1 | tee "$LOGS/verify-mvn-retry.log"
+        run: |
+          set -o pipefail
+          node scripts/expect.js "mvn -v" "Apache Maven 3.9.9" 2>&1 | tee "$LOGS/verify-mvn-retry.log"
 
       - name: Diagnostics (after)
         if: always()
