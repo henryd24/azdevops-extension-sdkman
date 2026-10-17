@@ -39,3 +39,8 @@ dist
 
 # Artefactos que generan los fixtures de validación
 dist/
+
+# fixtures build outputs
+tests/fixtures/**/target/
+tests/fixtures/**/build/
+tests/fixtures/**/.gradle/

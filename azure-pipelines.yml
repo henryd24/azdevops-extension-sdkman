@@ -107,6 +107,16 @@ stages:
           - script: node scripts/run-task.js sdkman-install "candidates=java 21.0.5-tem"
             displayName: SdkmanInstall is idempotent
 
+          # --- Ejemplos de la documentación: Java + Maven y Java + Gradle (proyectos mínimos en tests/fixtures)
+          - script: node scripts/expect.js "mvn -B -f tests/fixtures/maven-app/pom.xml package" "BUILD SUCCESS"
+            displayName: Example - Maven builds with the active JDK
+          - script: node scripts/expect.js "java -cp tests/fixtures/maven-app/target/classes demo.App" "Hello from Java 21.0.5"
+            displayName: Example - the Maven build runs on Java 21
+          - script: node scripts/run-task.js sdkman-install "candidates=gradle 8.11.1"
+            displayName: SdkmanInstall gradle 8.11.1
+          - script: node scripts/expect.js "gradle --no-daemon -p tests/fixtures/gradle-app build" "BUILD SUCCESSFUL"
+            displayName: Example - Gradle builds with the active JDK
+
           # --- SdkmanEnv: el .sdkmanrc del fixture (java 17 + maven) manda sobre lo anterior
           - script: node scripts/run-task.js sdkman-env sdkmanrcPath=tests/fixtures/sample/.sdkmanrc
             displayName: SdkmanEnv (.sdkmanrc)
@@ -125,3 +135,37 @@ stages:
           - script: node scripts/run-task.js sdkman-install "candidates=java 21-local $SDKMAN_DIR/candidates/java/21.0.5-tem"
             displayName: SdkmanInstall local folder as a version
             condition: and(succeeded(), ne(variables['Agent.OS'], 'Windows_NT'))
+
+      # Ejemplo de caché del README: Cache@2 sobre SDKMAN_DIR. En la segunda ejecución con la misma clave el job no debe
+      # descargar nada (los JDK ya están en disco). Solo Linux: es una comprobación de la caché, no de cada sistema operativo.
+      - job: cache_example
+        displayName: README caching example (Linux)
+        pool:
+          vmImage: ubuntu-latest
+        variables:
+          TASKS_DIR: $(Pipeline.Workspace)/tasks
+          SDKMAN_DIR: $(Pipeline.Workspace)/.sdkman
+        steps:
+          - checkout: self
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+          - download: current
+            artifact: tasks
+          - task: Cache@2
+            inputs:
+              key: 'sdkman | "$(Agent.OS)" | "java 21.0.5-tem maven 3.9.9"'
+              path: $(SDKMAN_DIR)
+              cacheHitVar: SDKMAN_CACHE_HIT
+            displayName: Restore SDKMAN_DIR
+          - script: |
+              set -o pipefail
+              node scripts/run-task.js sdkman-install "candidates=java 21.0.5-tem\nmaven 3.9.9" 2>&1 | tee "$(Agent.TempDirectory)/install.log"
+            displayName: SdkmanInstall
+          - script: |
+              grep -q "already installed" "$(Agent.TempDirectory)/install.log"
+              ! grep -q "Downloading: java" "$(Agent.TempDirectory)/install.log"
+            displayName: Cache hit means nothing was downloaded
+            condition: and(succeeded(), eq(variables['SDKMAN_CACHE_HIT'], 'true'))
+          - script: node scripts/expect.js "mvn -B -f tests/fixtures/maven-app/pom.xml package" "BUILD SUCCESS"
+            displayName: The cached toolchain builds the Maven example

@@ -11,29 +11,42 @@ No per-tool installer tasks and no hand-rolled scripts: four small tasks that ch
 | Task | What it does |
 | ---- | ------------ |
 | `SdkmanSetup` | Installs SDKMAN (or reuses an existing install) without touching shell profiles and exposes `SDKMAN_DIR`. Optional: `SdkmanInstall` can do it itself. |
-| `SdkmanInstall` | Installs candidates (`java 21.0.5-tem`, `gradle 8.11`, `maven`...) and exports `JAVA_HOME`, `GRADLE_HOME`... and the `PATH` for the following steps. |
+| `SdkmanInstall` | Installs candidates (`java 21.0.5-tem`, `gradle 8.11.1`, `maven`...) and exports `JAVA_HOME`, `GRADLE_HOME`... and the `PATH` for the following steps. |
 | `SdkmanEnv` | Reads a `.sdkmanrc`, installs what it lists and activates it for the following steps: the repository decides the versions, locally and in CI. |
 | `SdkmanRun` | Runs `sdk` commands (`list`, `current`, `flush`, `home`...) or any command with SDKMAN loaded. |
 
 > **Not published on the Marketplace.** This is a community project distributed as source. Build it with your own publisher and install it privately in your organization: see [Install in your organization](#install-in-your-organization). Provided as is, without support.
 
+
 # Requirements
+
+**Short answer:** on Microsoft-hosted Ubuntu agents you need nothing. On macOS and Windows hosted agents you add one prerequisite step each (below). You do **not** need Java, Maven, Gradle or SDKMAN on the agent beforehand: that is what the tasks install.
+
+## What an agent needs
 
 SDKMAN is a bash program, so the agent needs:
 
 | Requirement | Notes |
 | ----------- | ----- |
-| **bash 4 or newer** | Linux: the default. **macOS ships bash 3.2**: the task uses Homebrew's bash (`/opt/homebrew/bin/bash`, `/usr/local/bin/bash`) if present, otherwise run `brew install bash`. |
-| `curl`, `zip`, `unzip` | Debian/Ubuntu: `apt-get install -y curl zip unzip`. Alpine: `apk add bash curl zip unzip`. |
-| Internet access to `get.sdkman.io`, `api.sdkman.io` and the vendors' download hosts | Or use the `installUrl` / `candidatesApi` inputs with an internal mirror. |
+| **bash 4 or newer** | Linux: the default. macOS ships bash 3.2 (see below). Windows: Git Bash. |
+| `curl`, `zip`, `unzip` | The SDKMAN installer checks for them and `sdk install` unpacks JDKs with them. |
+| Network access to `get.sdkman.io`, `api.sdkman.io` and the vendors' download hosts | SDKMAN redirects each download to the vendor's own host. Behind a firewall, use an internal mirror ([Mirrors, proxies and offline agents](#mirrors-proxies-and-offline-agents)) or an allow-list. |
+| A writable `SDKMAN_DIR` | Defaults to `<Agent.ToolsDirectory>/sdkman`; set `sdkmanDir` to change it. |
+| Disk space | About 200 MB per JDK download, plus the unpacked JDK. Add `Cache@2` ([Caching between runs](#caching-between-runs)) to avoid repeating it. |
 
-**Hosted agents** (checked on GitHub's `macos-latest` and `windows-latest` images, which are the same images Azure Pipelines hosts):
+The Azure Pipelines agent already provides Node.js, which is all the tasks themselves need. The task fails early with an actionable message when something is missing.
+
+## Microsoft-hosted agents
+
+Checked on Azure Pipelines hosted agents (and on the equivalent GitHub runner images):
 
 | Agent | What is missing | Prerequisite step |
 | ----- | --------------- | ----------------- |
 | `ubuntu-latest` | nothing | none |
 | `macOS-latest` | only bash 3.2 is installed | `brew install bash` and put `$(brew --prefix)/bin` on the PATH |
-| `windows-latest` | Git Bash has `unzip` and `curl`, but **no `zip`** | install `zip` into Git Bash (see below) |
+| `windows-latest` | Git Bash has `unzip` and `curl`, but **no `zip`** | install `zip` into Git Bash |
+
+Add these steps **before** the SDKMAN tasks (they are skipped on the other systems):
 
 ```yaml
 steps:
@@ -55,9 +68,17 @@ steps:
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
 ```
 
-**Windows agents** work through **Git Bash** (Git for Windows, found at `C:\Program Files\Git\bin\bash.exe`), and they need **`zip` and `unzip`** available inside Git Bash. `unzip` is also what the Azure Pipelines agent itself relies on to unpack tools. SDKMAN does not support Cygwin or WSL's bash as the agent shell: the task never picks `C:\Windows\System32\bash.exe` (use the `bashPath` input to point at a specific Git Bash). On self-hosted Windows agents, install `zip` and `unzip` into Git's `usr\bin` (for example from MSYS2 or GnuWin32).
+**Windows agents** work through **Git Bash** (Git for Windows, at `C:\Program Files\Git\bin\bash.exe`) and need **`zip` and `unzip`** inside Git Bash. SDKMAN does not support Cygwin or WSL's bash as the agent shell: the task never picks `C:\Windows\System32\bash.exe` (use the `bashPath` input to point at a specific Git Bash).
 
-The task fails early with an actionable message when something is missing.
+## Self-hosted agents
+
+Linux, with the packages SDKMAN needs (Debian/Ubuntu):
+
+```bash
+apt-get update && apt-get install -y --no-install-recommends bash curl zip unzip ca-certificates
+```
+
+(Alpine: `apk add bash curl zip unzip`; Alpine/musl is not covered by this project's tests.) On macOS install a modern bash with `brew install bash`; on Windows install Git for Windows and add `zip` to Git's `usr\bin` (for example from MSYS2 or GnuWin32).
 
 
 # Install in your organization
@@ -81,6 +102,7 @@ An Azure DevOps extension is tied to its publisher, so you build it with *your* 
 
 In a fork, set the repository variable `EXTENSION_PUBLISHER` and every push to `trunk` that changes code creates a GitHub Release with the `.vsix` built for your publisher.
 
+
 # Quick start
 
 ```yaml
@@ -93,11 +115,122 @@ steps:
   - script: mvn -B verify
 ```
 
-`java` and `mvn` are on the PATH, `JAVA_HOME` and `MAVEN_HOME` are set. If SDKMAN is not on the agent, the task installs it.
+`java` and `mvn` are on the PATH, `JAVA_HOME` and `MAVEN_HOME` are set for every following step. If SDKMAN is not on the agent, the task installs it. Each line of `candidates` is `<candidate> <version>`: `java` is the tool, `21.0.5-tem` is the SDKMAN identifier (`-tem` = Eclipse Temurin).
 
-> Pin exact identifiers (`21.0.5-tem`) for reproducible builds. Run `sdk list java` to see them. Without a version, SDKMAN's current default is used.
+> Pin exact identifiers (`21.0.5-tem`) for reproducible builds. Without a version, SDKMAN's current default is used and your builds change when SDKMAN's default does.
 
-# Examples
+## How to use it, step by step
+
+1. **Install the extension** in your organization ([Install in your organization](#install-in-your-organization)).
+2. **Check the agent** ([Requirements](#requirements)): Ubuntu hosted needs nothing; add the prerequisite step on macOS and Windows.
+3. **Add `SdkmanInstall@0`** with the tools you need, as above. One line per tool.
+4. **Use the tools in the following steps** as if they were installed on the agent: `mvn`, `gradle`, `java`, `$JAVA_HOME`.
+5. *(Optional)* Put the versions in a `.sdkmanrc` and use `SdkmanEnv@0` instead, so developers and the pipeline share them ([The repository decides](#the-repository-decides-sdkmanrc)).
+
+# Complete examples
+
+The tool installation and the Maven/Gradle builds below are exercised by this repository's own validation: it installs these exact versions and builds the sample projects in [`tests/fixtures/maven-app`](tests/fixtures/maven-app) and [`tests/fixtures/gradle-app`](tests/fixtures/gradle-app) on Linux, macOS and Windows hosted agents. The publishing steps (`PublishTestResults`, `publish`) are standard Azure Pipelines steps and are not part of that test.
+
+## Java 21 + Maven
+
+```yaml
+trigger:
+  branches:
+    include: [main]
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: SdkmanInstall@0
+    displayName: Java 21 and Maven
+    inputs:
+      candidates: |
+        java 21.0.5-tem
+        maven 3.9.9
+
+  - script: mvn -B verify
+    displayName: Build and test
+
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: '**/surefire-reports/TEST-*.xml'
+
+  - publish: target
+    artifact: jar
+```
+
+## Java 21 + Gradle
+
+```yaml
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: SdkmanInstall@0
+    displayName: Java 21 and Gradle
+    inputs:
+      candidates: |
+        java 21.0.5-tem
+        gradle 8.11.1
+
+  - script: gradle --no-daemon build
+    displayName: Build and test
+```
+
+If your repository has the **Gradle wrapper** (`gradlew`), install only Java and run `./gradlew build`: the wrapper downloads the Gradle version your project pins.
+
+```yaml
+  - task: SdkmanInstall@0
+    inputs:
+      candidates: java 21.0.5-tem
+  - script: ./gradlew build
+```
+
+## Choosing identifiers and versions
+
+An identifier is `<version>-<vendor suffix>`. To see what is available, run `sdk list` through `SdkmanRun`:
+
+```yaml
+- task: SdkmanRun@0
+  inputs:
+    commands: |
+      list java
+      list gradle
+```
+
+| Vendor | Suffix | Example (listed by `sdk list java` on 2026-10-17) |
+| ------ | ------ | ------------------------------------------------- |
+| Eclipse Temurin | `-tem` | `21.0.5-tem` |
+| Azul Zulu | `-zulu` | `17.0.20+1.1-zulu` |
+| Amazon Corretto | `-amzn` | `21.0.4.0+7-amzn` |
+| GraalVM Community | `-graalce` | `21.0.2-graalce` |
+| Microsoft | `-ms` | `21.0.0.0-ms` |
+| Liberica | `-librca` | `21.0.12+1.1-librca` |
+
+Identifiers are not uniform (some carry build numbers such as `+7` or flavours such as `.crac`/`.fx`) and they change as vendors publish builds, so **copy the exact identifier from `list java`**. A version that does not exist for the agent's platform fails immediately, without retries, and the error tells you to run `sdk list <candidate>`.
+
+## Other tools
+
+Any SDKMAN candidate works the same way. The names you write in `candidates` are lowercase: `maven`, `gradle`, `kotlin`, `groovy`, `scala`, `springboot`, `quarkus`, `micronaut`, `jbang`, `ant`, `sbt`, `tomcat`... (`sdk list` shows them all).
+
+```yaml
+- task: SdkmanInstall@0
+  inputs:
+    candidates: |
+      java 21.0.5-tem
+      kotlin
+      springboot
+- script: |
+    kotlinc -version
+    spring --version
+```
+
+Installed and run this way: `kotlinc` for Kotlin and `spring` for the Spring Boot CLI. Without a version, the current default of each candidate is installed (here Kotlin 2.4.21 and Spring Boot 4.1.0 on 2026-10-17): pin versions in real pipelines.
+
+# More examples
 
 ## Several JDKs: build on one, run on another
 
@@ -248,6 +381,24 @@ steps:
       candidates: java 21.0.5-tem
   - script: echo '$(tools.sdkmanInstalled)'   # [{"candidate":"java","version":"21.0.5-tem","home":"...","installedNow":true,"active":true}]
 ```
+
+
+# Troubleshooting
+
+| Message (or symptom) | Cause | What to do |
+| -------------------- | ----- | ---------- |
+| `SDKMAN requires bash 4 or newer. Found /bin/bash (bash 3)...` | macOS ships bash 3.2 | Add the `brew install bash` prerequisite step ([Requirements](#requirements)). |
+| `SDKMAN needs zip on the agent...` | `zip` or `unzip` is missing from the agent (Git Bash on Windows has no `zip`) | Install it; the message includes the command for your system. |
+| `... failed (exit code 1) and retrying will not help` | That version, candidate or local path does not exist for this agent's platform | Run `SdkmanRun` with `list <candidate>` and use an identifier from the list. |
+| `... failed (exit code 1) after 3 attempt(s). Check access to api.sdkman.io...` | The network blocked `api.sdkman.io` or the vendor's download host | Allow them, or use a mirror (`installUrl`, `candidatesApi`). |
+| `... is not installed and offline mode is on` | `offline: true` and the version is not in `SDKMAN_DIR` | Restore `SDKMAN_DIR` from a cache, or turn offline mode off. |
+| `SDKMAN was not found in ... automatic installation is disabled` | `autoInstallSdkman: false` and no `SdkmanSetup` step | Add `SdkmanSetup@0` or enable `autoInstallSdkman`. |
+| Warning: `JAVA_HOME was '...' and is now '...'` | The agent had its own Java; the task replaced `JAVA_HOME` for the following steps | Nothing: that is the intended effect. Pin the version you want. |
+| `sdk current` shows a different version than `java -version` | `sdk current` reports SDKMAN's *default*; the job uses the version the task activated | Use `JAVA_HOME` / `java -version` as the source of truth. |
+| `SDKMAN does not support Cygwin` | The agent's bash is Cygwin's | Use Git Bash (`bashPath`). |
+
+Run the pipeline with `system.debug: true` for the tasks' internal messages and SDKMAN's own debug output.
+
 
 # Rich pipeline output
 

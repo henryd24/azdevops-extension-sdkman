@@ -81,6 +81,20 @@ jobs:
           node scripts/expect.js "mvn -v" "Apache Maven 3.9.9"
           node scripts/expect.js "mvn -v" "Java version: 21.0.5"
 
+      # Los ejemplos de la documentación: un proyecto Maven y otro Gradle compilados con el JDK activo.
+      - name: Example - Java + Maven builds and runs
+        run: |
+          node scripts/expect.js "mvn -B -f tests/fixtures/maven-app/pom.xml package" "BUILD SUCCESS"
+          node scripts/expect.js "java -cp tests/fixtures/maven-app/target/classes demo.App" "Hello from Java 21.0.5"
+
+      - name: Example - Java + Gradle (SdkmanInstall gradle 8.11.1)
+        run: |
+          set -o pipefail
+          node scripts/run-task.js sdkman-install "candidates=gradle 8.11.1" 2>&1 | tee "$LOGS/gradle.log"
+          node scripts/apply-vso.js "$LOGS/gradle.log"
+          node scripts/expect.js "gradle --no-daemon -p tests/fixtures/gradle-app build" "BUILD SUCCESSFUL"
+          node scripts/expect.js "java -cp tests/fixtures/gradle-app/build/classes/java/main demo.App" "Hello from Java 21.0.5"
+
       - name: SdkmanEnv (.sdkmanrc says java 17)
         run: |
           set -o pipefail
