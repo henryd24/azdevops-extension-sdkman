@@ -186,6 +186,15 @@ El `trigger`/`pr` del archivo solo apuntan a `trunk`: para otras ramas hay que l
 - **Maven y Gradle** (`tests/fixtures/maven-app`, `gradle-app`): compilan con el JDK activo en Linux, macOS y Windows hospedados de Azure (run 1919).
 - **Caché con `Cache@2`** (ejemplo del README): job `cache_example` del `azure-pipelines.yml`. En el run 1919 la caché estaba vacía (el paso de comprobación se omite) y se guardó; en el run 1920 se restauró y el paso «Cache hit means nothing was downloaded» **pasó**, es decir, los JDK ya estaban en disco y `SdkmanInstall` no descargó nada.
 
-## Pendiente: la rama `trunk` no existe
+## La rama `trunk`
 
-Los triggers de `ci.yml` (PR a `trunk`), `release.yml` (push a `trunk`) y `azure-pipelines.yml` (push a `trunk`) apuntan a `trunk`, pero hoy el repositorio solo tiene la rama `claude/optimistic-faraday-0oxar8`, que es también la rama por defecto. Hasta que exista `trunk` no hay releases automáticas ni build de Azure por push; el CI de GitHub sí corre por las ramas `claude/**`. Decisión del propietario: crear `trunk` (y hacerla la rama por defecto) o cambiar esos triggers a la rama que se use.
+Los triggers de `ci.yml` (PR a `trunk`), `release.yml` (push a `trunk`) y `azure-pipelines.yml` (push a `trunk`) apuntan a `trunk`. Se creó a partir de `claude/optimistic-faraday-0oxar8` (commit `2ae17ed`) y el pipeline de Azure (id 81) tiene `trunk` como rama por defecto.
+
+- **Pendiente a mano:** cambiar la rama por defecto del repositorio de GitHub a `trunk` (*Settings → Branches → Default branch → Switch to another branch → `trunk` → Update*). No se puede hacer desde las herramientas de la sesión; mientras tanto la rama por defecto de GitHub sigue siendo `claude/optimistic-faraday-0oxar8`.
+- **Crear una rama ya no publica nada:** `release.yml` lleva la guarda `if: github.event_name != 'push' || !github.event.created`. Sin ella, crear `trunk` habría publicado una release automática.
+- **Los cambios llegan a `trunk` por PR/merge:** `trunk` es una foto del momento en que se creó; lo que se siga haciendo en la rama de trabajo no está en `trunk` hasta que se fusione.
+- **Cuándo se publica una release:** `release.yml` solo se dispara con un push a `trunk` que toque `src/**` (salvo tests), `vss-extension.json`, `config/release.json`, `images/**`, `package*.json` o `tsconfig.json`, o a mano (*Actions → Release → Run workflow*, input `bump`). El PR que lleva la rama de trabajo a `trunk` solo cambia documentación y workflows, así que **fusionarlo no publica nada**. La primera release (`v0.1.0`: sin tags previos `release.yml` usa `0.1.0`, que coincide con la versión de las tareas en `task.json`) se lanza a mano sobre `trunk` o con el siguiente push a `trunk` que cambie código; las siguientes suben el parche (`0.1.1`...) o lo que indique `bump`.
+
+## Tareas de Azure Pipelines deprecadas
+
+Los avisos reales de las builds de Azure (timeline del run 1920) mostraban una única tarea deprecada: `NodeTool@0` («This task is deprecated... Please use UseNode@1»). Se sustituyó por `UseNode@1` (el input pasa de `versionSpec` a `version`) en las tres apariciones de `azure-pipelines.yml`. El resto de avisos no son deprecaciones de tareas: el `JAVA_HOME`/`GRADLE_HOME` reemplazado es el efecto buscado de las tareas, y los avisos del pool (migración de `ubuntu-latest` a Ubuntu 26 desde el 2026-10-19; las imágenes `macOS-latest` del pool de Azure ya no se actualizan y Microsoft recomienda agentes hospedados por GitHub) son informativos y no cambian el comportamiento.
