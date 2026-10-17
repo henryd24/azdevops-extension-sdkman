@@ -186,6 +186,10 @@ El `trigger`/`pr` del archivo solo apuntan a `trunk`: para otras ramas hay que l
 - **Maven y Gradle** (`tests/fixtures/maven-app`, `gradle-app`): compilan con el JDK activo en Linux, macOS y Windows hospedados de Azure (run 1919).
 - **Caché con `Cache@2`** (ejemplo del README): job `cache_example` del `azure-pipelines.yml`. En el run 1919 la caché estaba vacía (el paso de comprobación se omite) y se guardó; en el run 1920 se restauró y el paso «Cache hit means nothing was downloaded» **pasó**, es decir, los JDK ya estaban en disco y `SdkmanInstall` no descargó nada.
 
-## Pendiente: la rama `trunk` no existe
+## La rama `trunk`
 
-Los triggers de `ci.yml` (PR a `trunk`), `release.yml` (push a `trunk`) y `azure-pipelines.yml` (push a `trunk`) apuntan a `trunk`, pero hoy el repositorio solo tiene la rama `claude/optimistic-faraday-0oxar8`, que es también la rama por defecto. Hasta que exista `trunk` no hay releases automáticas ni build de Azure por push; el CI de GitHub sí corre por las ramas `claude/**`. Decisión del propietario: crear `trunk` (y hacerla la rama por defecto) o cambiar esos triggers a la rama que se use.
+Los triggers de `ci.yml` (PR a `trunk`), `release.yml` (push a `trunk`) y `azure-pipelines.yml` (push a `trunk`) apuntan a `trunk`. Se creó a partir de `claude/optimistic-faraday-0oxar8` (commit `2ae17ed`) y el pipeline de Azure (id 81) tiene `trunk` como rama por defecto.
+
+- **Pendiente a mano:** cambiar la rama por defecto del repositorio de GitHub a `trunk` (*Settings → Branches → Default branch → Switch to another branch → `trunk` → Update*). No se puede hacer desde las herramientas de la sesión; mientras tanto la rama por defecto de GitHub sigue siendo `claude/optimistic-faraday-0oxar8`.
+- **Crear una rama ya no publica nada:** `release.yml` lleva la guarda `if: github.event_name != 'push' || !github.event.created`. Sin ella, crear `trunk` habría publicado una release `v1.0.0` (sin tags previos, la primera versión calculada es `1.0.0`).
+- **Los cambios llegan a `trunk` por PR/merge:** `trunk` es una foto del momento en que se creó; lo que se siga haciendo en la rama de trabajo no está en `trunk` hasta que se fusione. El primer push a `trunk` con cambios de código dispara `release.yml` y publica una release (versión `1.0.0` si no hay tags: `release.yml` calcula `1.0.0` cuando no existe ningún tag `vX.Y.Z`, no `0.1.0`).
