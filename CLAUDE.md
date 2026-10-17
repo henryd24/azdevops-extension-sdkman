@@ -4,7 +4,7 @@ Extensión de Azure DevOps (publisher `hendamm`) que instala **SDKMAN!** y herra
 
 ## Estado
 
-Fases 1-6 de `docs/IMPLEMENTATION_PLAN.md` hechas: `SdkmanSetup`, `SdkmanInstall`, `SdkmanEnv` (.sdkmanrc), `SdkmanRun` (modos `sdk` y `shell`). Pendientes: ejecutar `azure-pipelines.yml` en Azure (Fase 7; los runners equivalentes ya pasan en `validate-tasks.yml`), docs finales/release (Fase 8). Decisiones y resultados de los spikes: `docs/DESIGN.md`.
+Fases 1-6 de `docs/IMPLEMENTATION_PLAN.md` hechas: `SdkmanSetup`, `SdkmanInstall`, `SdkmanEnv` (.sdkmanrc), `SdkmanRun` (modos `sdk` y `shell`). Fase 7 hecha: `azure-pipelines.yml` ejecutado y verde en Azure (pipeline id 81, proyecto `education`, run 1918: Linux, macOS y Windows). Pendiente: docs finales y primera release (Fase 8). Decisiones y resultados de los spikes: `docs/DESIGN.md`.
 
 ## Estructura
 
@@ -40,6 +40,6 @@ node scripts/run-task.js sdkman-install "candidates=java 21.0.5-tem"   # tras pa
 
 ## Validación en runners reales
 
-`.github/workflows/validate-tasks.yml` ejecuta las 4 tareas en ubuntu/macOS/Windows (mismas imágenes que Azure hosted) y aplica los `##vso` con `scripts/apply-vso.js`. Hechos verificados: macOS hospedado solo trae bash 3.2 (hace falta `brew install bash`); Windows hospedado tiene Git Bash con `unzip`/`curl` pero sin `zip` (MSYS2 `pacman -S zip` + copiar `zip.exe` a `C:\Program Files\Git\usr\bin`). `azure-pipelines.yml` aún no se ha ejecutado en Azure (ver `docs/DESIGN.md`, «Validación en Azure Pipelines»).
+`.github/workflows/validate-tasks.yml` ejecuta las 4 tareas en ubuntu/macOS/Windows (mismas imágenes que Azure hosted) y aplica los `##vso` con `scripts/apply-vso.js`. Hechos verificados: macOS hospedado solo trae bash 3.2 (hace falta `brew install bash`); Windows hospedado tiene Git Bash con `unzip`/`curl` pero sin `zip` (MSYS2 `pacman -S zip` + copiar `zip.exe` a `C:\Program Files\Git\usr\bin`). `azure-pipelines.yml` se ejecutó en Azure con éxito (ver `docs/DESIGN.md`, «Validación en Azure Pipelines»).
 - Pasar `npm test` completo antes de subir: `jest` falla si una tarea no tiene tests (`sdkman-setup` lo hizo en CI); no filtres la salida con `grep` sin mirar el exit code.
 - En `azure-pipelines.yml`: toda `condition:` debe llevar `and(succeeded(), ...)` (una condición propia sustituye al `succeeded()` por defecto); en Windows un `script:` es un `.cmd` donde solo cuenta la última línea: usa `powershell:` para varios comandos que deban fallar el paso, y `call` antes de cualquier `.cmd`/`npm`.

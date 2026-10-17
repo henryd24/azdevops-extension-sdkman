@@ -139,15 +139,16 @@ Ejecutados en Linux x64 (ubuntu, bash 5.2) con `HOME` y `SDKMAN_DIR` aislados. S
 - **`offline` propio**: comprueba disco en vez de usar `sdk offline enable`; falla con mensaje claro si falta SDKMAN, una versión o la versión explícita.
 - **F1.7 (fijar versión del CLI de SDKMAN)** sigue como P2: requeriría sustituir `SDKMAN_VERSION` en el script de instalación.
 
-## Validación en Azure Pipelines (pendiente de ejecutar por el usuario)
+## Validación en Azure Pipelines (HECHA)
 
-`azure-pipelines.yml` no se ha podido ejecutar desde la sesión de desarrollo (no hay conector de Azure DevOps). Se revisó contra la documentación de Microsoft Learn y se corrigió:
+Pipeline `azdevops-extension-sdkman` (id 81, proyecto `education`, organización `henrydanielmm`, YAML `/azure-pipelines.yml`, conexión de GitHub existente). Primer run, **1918** sobre la rama `claude/optimistic-faraday-0oxar8` (commit `1e12beb`): **succeeded**, con Build (tests, typecheck, empaquetado, artefacto `tasks`) y Validate en **Linux, macOS y Windows** hospedados de Azure: 64 pasos correctos, 0 fallidos, 6 omitidos (los pasos propios de otro sistema operativo). Confirma en Azure lo que antes solo se había verificado en los mismos runners vía GitHub Actions: `download: current` + `TASKS_DIR`, la propagación de `##vso[task.prependpath]` entre pasos `script`, los prerrequisitos (brew bash en macOS, `zip` en PowerShell en Windows) y las 4 tareas con descargas reales de JDK.
+
+Antes de ejecutarlo se revisó contra Microsoft Learn y se corrigió:
 
 - `Agent.OS` usa `Windows_NT` / `Darwin` / `Linux` (correcto).
 - Una `condition:` propia **reemplaza** el `succeeded()` por defecto: todas las condiciones del pipeline son `and(succeeded(), ...)`.
 - Un `script:` de Windows es un `.cmd` temporal: solo cuenta el exit code de la última línea, y invocar un `.cmd`/`npm` sin `call` corta el paso. Por eso el prerrequisito de zip usa `powershell:` con comprobaciones, y los pasos de tareas solo invocan `node` (un `.exe`).
 - Los comandos de las tareas usan `\n` literal (no `%0A`, que cmd interpretaría) y comillas dobles (portables a cmd y bash).
 
-Lo que NO está verificado en Azure (sí en los mismos runners vía `validate-tasks.yml`): `download: current` + `TASKS_DIR=$(Pipeline.Workspace)/tasks`, la propagación de `##vso[task.prependpath]` entre pasos `script`, y el prerrequisito PowerShell de Windows.
+El `trigger`/`pr` del archivo solo apuntan a `trunk`: para otras ramas hay que lanzarlo a mano (*Run pipeline* → rama).
 
-Para ejecutarlo: *Pipelines → New pipeline → GitHub → este repositorio → Existing Azure Pipelines YAML file → `/azure-pipelines.yml`* y lanzarlo en la rama `claude/optimistic-faraday-0oxar8` (el `trigger`/`pr` del archivo solo apuntan a `trunk`, así que hay que lanzarlo a mano). Si algún paso falla, el log del paso y su nombre bastan para diagnosticarlo.

@@ -312,7 +312,7 @@ Output: `exitCode` (0, or the exit code of the first failing command).
 # CI / CD
 
 - **GitHub Actions** (`.github/workflows`): `ci.yml` runs tests and typecheck on Linux, Windows and macOS and builds a dev `.vsix`; `validate-tasks.yml` runs the four bundled tasks end to end (real SDKMAN, real JDK downloads) on Linux, macOS and Windows runners; `release.yml` releases on pushes to `trunk` that change code.
-- **Azure Pipelines** (`azure-pipelines.yml`): the same validation on Azure hosted agents. It has not been run on Azure yet; the GitHub Actions workflow is the verified equivalent.
+- **Azure Pipelines** (`azure-pipelines.yml`): the same validation on Azure hosted agents (Linux, macOS and Windows). It has been run on Azure hosted agents and passes, including the macOS and Windows prerequisite steps above.
 
 # Disclaimer
 

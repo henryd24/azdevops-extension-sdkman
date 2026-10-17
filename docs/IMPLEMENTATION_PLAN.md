@@ -72,7 +72,7 @@ Entregable (cumplido): sección "Resultados de la Fase 0" en `DESIGN.md`, riesgo
 - Mensajes de error que nombren el dominio (api.sdkman.io, vendor) ante fallos de red.
 - Features: F1.6, F1.7, F2.6–F2.8, F5.2.
 
-## Fase 7 · CI y validación en agentes reales
+## Fase 7 · CI y validación en agentes reales — HECHA (run 1918 en Azure: Linux, macOS y Windows verdes; falta solo el caso Alpine/musl, F5.5, P2)
 
 - `azure-pipelines.yml`: ejecuta los bundles (`tasks/<tarea>/index.js`) en `ubuntu-latest` y `macOS-latest` (comprobar aquí bash ≥ 4); un job en Windows que verifique el error claro, con los fixtures. Mismo enfoque que uvpy: no instala la extensión, ejecuta el bundle desde un paso `script`.
 - GitHub Actions: `ci.yml` (test + typecheck en matriz de SO, `pack:dev`), `release.yml` (release automático en push a trunk con cambios de código; variable `EXTENSION_PUBLISHER`).
