@@ -38,6 +38,8 @@ concurrency:
 
 jobs:
   release:
+    # Crear la rama trunk (o cualquier rama nueva) es un push con `created: true`: no debe publicar una release.
+    if: ${{ github.event_name != 'push' || !github.event.created }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
