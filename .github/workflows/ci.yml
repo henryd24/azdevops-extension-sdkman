@@ -1,10 +1,24 @@
 name: CI
 
+# Seguridad: pull_request (nunca pull_request_target) => en un PR de fork el token es de solo lectura y no hay secretos.
+# Los cambios que no afectan al código (documentación, markdown, licencia, imágenes) no lanzan el CI.
 on:
   push:
     branches: [trunk, "claude/**"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "images/**"
+      - "LICENSE"
+      - ".gitignore"
   pull_request:
     branches: [trunk]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "images/**"
+      - "LICENSE"
+      - ".gitignore"
   workflow_dispatch:
 
 permissions:
@@ -18,12 +32,15 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -37,8 +54,11 @@ jobs:
     name: Package dev .vsix
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20

@@ -27,8 +27,9 @@ on:
         options: [patch, minor, major]
         default: patch
 
+# Solo lectura por defecto; el permiso de escritura se concede únicamente al job que crea la release.
 permissions:
-  contents: write
+  contents: read
 
 # Evita que dos releases calculen la misma versión a la vez.
 concurrency:
@@ -38,10 +39,14 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # crear el tag y la release
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # necesario para ver los tags existentes
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -90,13 +95,17 @@ jobs:
       - run: npm run typecheck
       - run: npm run package:tasks
 
+      # Valores por env (no interpolados en el script): evita la inyección de comandos.
       - name: Create release .vsix
+        env:
+          PUBLISHER: ${{ vars.EXTENSION_PUBLISHER || 'hendamm' }}
+          VERSION: ${{ steps.version.outputs.value }}
         run: >
           npx tfx extension create
           --manifest-globs vss-extension.json
           --overrides-file config/release.json
-          --publisher "${{ vars.EXTENSION_PUBLISHER || 'hendamm' }}"
-          --override "{\"version\":\"${{ steps.version.outputs.value }}\"}"
+          --publisher "$PUBLISHER"
+          --override "{\"version\":\"$VERSION\"}"
           --output-path dist
 
       - uses: actions/upload-artifact@v4

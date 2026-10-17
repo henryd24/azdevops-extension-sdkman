@@ -1,14 +1,20 @@
 name: Validate tasks
 
+# Seguridad: solo se dispara con push (a trunk o a ramas claude/**) y a mano; nunca con pull_request, así que un fork no lo ejecuta.
 # Ejecuta los bundles de las tareas en runners reales (las mismas imágenes que los agentes hospedados de Azure Pipelines)
 # y aplica con scripts/apply-vso.js lo que el agente haría con los ##vso. Instala antes los prerrequisitos documentados en
 # el README: bash 4+ en macOS y zip en Git Bash de Windows.
 on:
   push:
     branches: ["claude/**", trunk]
+    # Solo lo que puede cambiar el resultado de la validación: ni documentación ni los tests unitarios ni el linter de workflows.
     paths:
       - "src/**"
+      - "!src/**/__tests__/**"
+      - "!src/**/*.test.ts"
       - "scripts/**"
+      - "!scripts/check-workflows.js"
+      - "!scripts/workflow-lint.js"
       - "tests/**"
       - "package.json"
       - "package-lock.json"
@@ -26,6 +32,7 @@ jobs:
   validate:
     name: Validate (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +42,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       # `runner` no existe en el contexto del env a nivel de job: se define aquí.
       - run: echo "LOGS=$RUNNER_TEMP/logs" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4

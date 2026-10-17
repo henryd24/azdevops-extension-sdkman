@@ -1,0 +1,7 @@
+# Quien cambia cómo se construye, se prueba o se publica la extensión debe ser revisado por el propietario.
+# Solo tiene efecto con la protección de rama «Require review from Code Owners» activada en trunk.
+/.github/            @henryd24
+/azure-pipelines.yml @henryd24
+/scripts/            @henryd24
+/package.json        @henryd24
+/package-lock.json   @henryd24

@@ -431,6 +431,8 @@ Output: `exitCode` (0, o el del primer comando que falló).
 
 # CI / CD
 
+Los workflows están protegidos frente a forks y PRs ajenos: los PRs solo ejecutan `ci.yml` (token de solo lectura, sin secretos, sin `pull_request_target`), el pipeline de Azure no construye PRs (`pr: none`) y los cambios solo de documentación no lanzan el CI. Una comprobación en `npm test` hace cumplir estas reglas. Detalle: [`docs/DESIGN.md`](docs/DESIGN.md) («Modelo de seguridad de CI»).
+
 - **GitHub Actions** (`.github/workflows`): `ci.yml` ejecuta tests y typecheck en Linux, Windows y macOS y construye un `.vsix` de desarrollo; `validate-tasks.yml` ejecuta las cuatro tareas de punta a punta (SDKMAN real, descargas reales de JDK) en runners de Linux, macOS y Windows; `release.yml` publica una release en cada push a `trunk` que cambie código.
 - **Azure Pipelines** (`azure-pipelines.yml`): la misma validación en agentes hospedados de Azure (Linux, macOS y Windows). Se ha ejecutado en agentes hospedados de Azure y pasa, incluidos los pasos de prerrequisito de macOS y Windows.
 

@@ -3,12 +3,22 @@
 # ##vso que imprimen (PATH, variables, resultado). El .vsix final lo genera GitHub Actions.
 # macOS y Windows necesitan un paso de prerrequisitos (bash 4+, zip): ver README.
 # Aún no se ha ejecutado en Azure Pipelines (solo en los mismos runners vía GitHub Actions: validate-tasks.yml).
+# Seguridad: `pr: none`. Una build de PR de GitHub ejecuta el YAML del propio PR (el merge de origen y destino), así que un fork
+# podría cambiar qué se ejecuta; la validación de PR la hace GitHub Actions (sin secretos, token de solo lectura). Este pipeline solo
+# corre por push a trunk y a mano. Además, los cambios que no afectan al código no lo lanzan.
 trigger:
   branches:
     include: [trunk]
-pr:
-  branches:
-    include: [trunk]
+  paths:
+    exclude:
+      - "**/*.md"
+      - docs
+      - images
+      - LICENSE
+      - .gitignore
+      - .github
+
+pr: none
 
 variables:
   NODE_VERSION: 20.x

@@ -152,3 +152,31 @@ Antes de ejecutarlo se revisó contra Microsoft Learn y se corrigió:
 
 El `trigger`/`pr` del archivo solo apuntan a `trunk`: para otras ramas hay que lanzarlo a mano (*Run pipeline* → rama).
 
+
+## Modelo de seguridad de CI (forks y PRs ajenos)
+
+**Amenaza:** cualquiera puede hacer fork y abrir un PR. Su código (incluidos `package.json`, los scripts de npm y los propios workflows del PR) correría en nuestros runners; en Azure, además, una build de PR ejecuta el YAML mezclado del PR, así que un fork podría cambiar qué se ejecuta.
+
+**Medidas en el repositorio (comprobadas en cada `npm test` por `scripts/check-workflows.js`, reglas en `scripts/workflow-lint.js`, con tests):**
+
+- Solo `pull_request`, nunca `pull_request_target` ni `workflow_run`: en un PR de fork el token es de solo lectura y no hay secretos.
+- `permissions: contents: read` en el nivel superior de cada workflow; la escritura solo en el job de `release`, que no se dispara con PRs (únicamente push a `trunk` y `workflow_dispatch`).
+- Ningún workflow disparado por `pull_request` referencia `secrets.*`.
+- `actions/checkout` con `persist-credentials: false` (el token no queda en `.git/config`).
+- Nada de `${{ ... }}` dentro de `run:` salvo `matrix.*`/`runner.*`/`strategy.*`: los valores (`inputs`, `vars`, salidas de pasos, datos del evento) pasan por `env:` y se usan como variables de shell (evita la inyección de comandos).
+- `timeout-minutes` en todos los jobs (acota el abuso de minutos).
+- Acciones de terceros solo fijadas por SHA de commit (hoy todas son `actions/*`).
+- Azure: `pr: none` (la validación de PRs la hace GitHub Actions) y toda `condition:` conserva `succeeded()`.
+- `validate-tasks.yml` solo se dispara con push y a mano, nunca con PRs.
+- `.github/CODEOWNERS` pide revisión del propietario para `.github/`, `azure-pipelines.yml`, `scripts/` y los `package*.json` (efectivo con la protección de rama «Require review from Code Owners»).
+
+**Exclusiones de triggers (menos ejecuciones):** el CI ignora documentación, markdown, licencia e imágenes; `validate-tasks.yml` solo corre si cambia código, scripts, fixtures o dependencias (no con tests unitarios ni con el linter); Azure excluye markdown, `docs`, `images`, `.github`, `LICENSE` y `.gitignore`. Contrapartida: con protección de rama que *exija* el check `CI`, un PR solo de documentación se queda con el check pendiente (GitHub no lo marca como omitido); si ocurre, quitar `paths-ignore` de `ci.yml` o no exigir ese check.
+
+**Ajustes que no están en el repositorio y conviene activar a mano (no se pueden fijar desde los workflows):**
+
+- GitHub → Settings → Actions → General → *Fork pull request workflows from outside collaborators*: **Require approval for all outside collaborators**.
+- GitHub → Settings → Actions → General → *Workflow permissions*: **Read repository contents and packages permissions**.
+- GitHub → protección de rama en `trunk`: exigir PR, revisión de Code Owners y el check `CI`.
+- Azure DevOps (organización o proyecto): *Securely build pull requests from forked repositories*. Con `pr: none` el pipeline no construye PRs, pero conviene dejarlo activo por si algún día se añade un trigger de PR; si se añade, usar agentes hospedados por Microsoft, no activar *Make secrets available to builds of forks* y exigir comentario de un miembro del equipo.
+
+**Riesgos que se aceptan y por qué:** las tareas ejecutan el instalador oficial de SDKMAN (`curl | bash` de `get.sdkman.io`) y descargan JDK de los vendors; es inherente a lo que hace la extensión. Los `uses: actions/*` van por etiqueta mayor (`@v4`), no por SHA: las acciones de primera parte se consideran de confianza (el linter obliga a SHA para cualquier acción de terceros).

@@ -462,6 +462,8 @@ Output: `exitCode` (0, or the exit code of the first failing command).
 
 # CI / CD
 
+Workflows are locked down for forks and outside pull requests: PRs only run `ci.yml` (read-only token, no secrets, no `pull_request_target`), the Azure pipeline does not build PRs (`pr: none`), and documentation-only changes do not trigger CI. A check in `npm test` enforces these rules. Details: [`docs/DESIGN.md`](docs/DESIGN.md) ("Modelo de seguridad de CI", in Spanish).
+
 - **GitHub Actions** (`.github/workflows`): `ci.yml` runs tests and typecheck on Linux, Windows and macOS and builds a dev `.vsix`; `validate-tasks.yml` runs the four bundled tasks end to end (real SDKMAN, real JDK downloads) on Linux, macOS and Windows runners; `release.yml` releases on pushes to `trunk` that change code.
 - **Azure Pipelines** (`azure-pipelines.yml`): the same validation on Azure hosted agents (Linux, macOS and Windows). It has been run on Azure hosted agents and passes, including the macOS and Windows prerequisite steps above.
 

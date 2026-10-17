@@ -6,7 +6,7 @@
   "scripts": {
     "postinstall": "azde-scripts install src/tasks",
     "build": "azde-scripts build src/tasks",
-    "test": "jest && node scripts/tasks.js test",
+    "test": "jest && node scripts/tasks.js test && node scripts/check-workflows.js",
     "package:tasks": "node scripts/tasks.js package",
     "pack": "npm run package:tasks && tfx extension create --manifest-globs vss-extension.json --overrides-file config/release.json",
     "packupversion": "npm run package:tasks && tfx extension create --manifest-globs vss-extension.json --rev-version --overrides-file config/release.json",
@@ -28,6 +28,7 @@
     "@types/jest": "^29.5.12",
     "@types/node": "^24.10.0",
     "jest": "^29.7.0",
+    "js-yaml": "^4.3.2",
     "ts-jest": "^29.1.2"
   }
 }
