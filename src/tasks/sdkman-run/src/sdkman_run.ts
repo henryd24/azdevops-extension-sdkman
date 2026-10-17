@@ -1,5 +1,5 @@
 import * as tl from "azure-pipelines-task-lib";
-import { ensureSdkman, formatDuration, formatTable, mdTable, publishSummary, runSdk, runShell, section } from "../../../shared";
+import { ensureSdkman, toEnsureOptions, formatDuration, formatTable, mdTable, publishSummary, runSdk, runShell, section } from "../../../shared";
 import { getInputs } from "./utils/inputs";
 import { RunSummary, runCommands } from "./utils/run";
 
@@ -24,13 +24,7 @@ function reportSummary(total: number, summary: RunSummary): void {
 async function run(): Promise<void> {
   try {
     const inputs = getInputs();
-    const sdk = await ensureSdkman({
-      dir: inputs.sdkmanDir,
-      autoInstall: inputs.autoInstallSdkman,
-      installUrl: inputs.installUrl,
-      candidatesApi: inputs.candidatesApi,
-      bashPath: inputs.bashPath,
-    });
+    const sdk = await ensureSdkman(toEnsureOptions(inputs, inputs.autoInstallSdkman));
     const summary = await runCommands(inputs, {
       runSdk: (args, options) => runSdk(sdk, args, options),
       runShell: (command, options) => runShell(sdk, command, options),

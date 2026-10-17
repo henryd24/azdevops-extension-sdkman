@@ -110,3 +110,10 @@ stages:
             displayName: SdkmanRun (sdk mode)
           - script: node scripts/run-task.js sdkman-run mode=shell "commands=java -version\nmvn -v"
             displayName: SdkmanRun (shell mode)
+
+          # --- Fase 6: offline (la API ni se consulta) y carpeta local como versión
+          - script: node scripts/run-task.js sdkman-install offline=true candidatesApi=http://127.0.0.1:1 "candidates=java 21.0.5-tem"
+            displayName: SdkmanInstall offline uses what is on disk
+          - script: node scripts/run-task.js sdkman-install "candidates=java 21-local $SDKMAN_DIR/candidates/java/21.0.5-tem"
+            displayName: SdkmanInstall local folder as a version
+            condition: ne(variables['Agent.OS'], 'Windows_NT')

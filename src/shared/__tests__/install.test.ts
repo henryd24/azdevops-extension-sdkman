@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { InstallDeps, installCandidates } from "../install";
+import { InstallDeps, installCandidates, isPermanentFailure } from "../install";
 
 function makeDeps(overrides: Partial<InstallDeps> = {}) {
   const installedDirs = new Set<string>();
@@ -78,5 +78,54 @@ describe("installCandidates", () => {
   it("fails when sdk reports success but the version folder is missing", async () => {
     const { deps } = makeDeps({ run: async () => ({ exitCode: 0 }) });
     await expect(installCandidates([{ candidate: "java", version: "21" }], deps, [])).rejects.toThrow("failed");
+  });
+
+  it("does not retry permanent failures", async () => {
+    const attempts: string[][] = [];
+    const { deps } = makeDeps({
+      run: async (args) => {
+        attempts.push(args);
+        return { exitCode: 1, output: "Stop! java 99 is not available. Possible causes:\n * 99 is an invalid version" };
+      },
+    });
+    await expect(installCandidates([{ candidate: "java", version: "99" }], deps, [1, 1])).rejects.toThrow("retrying will not help");
+    expect(attempts).toHaveLength(1);
+  });
+
+  it("names the network endpoints when transient failures persist", async () => {
+    const { deps } = makeDeps({ run: async () => ({ exitCode: 1, output: "Stop! java 21 is not available. Internet unreachable." }) });
+    await expect(installCandidates([{ candidate: "java", version: "21" }], deps, [1])).rejects.toThrow("api.sdkman.io");
+  });
+
+  it("classifies SDKMAN failure messages", () => {
+    expect(isPermanentFailure("Stop! nopelib is not a valid candidate.")).toBe(true);
+    expect(isPermanentFailure("Invalid path! Refusing to link java 17 to /nope.")).toBe(true);
+    expect(isPermanentFailure("Stop! gradle 8.10 is not available. Internet unreachable.")).toBe(false);
+    expect(isPermanentFailure("Stop! The archive was corrupt and has been removed!")).toBe(false);
+    expect(isPermanentFailure(undefined)).toBe(false);
+  });
+
+  it("offline: uses what is on disk, refuses to download and needs explicit versions", async () => {
+    const { deps, calls, installedDirs } = makeDeps({ offline: true });
+    installedDirs.add(path.join("/sdk", "candidates", "java", "21.0.5-tem"));
+    const [item] = await installCandidates([{ candidate: "java", version: "21.0.5-tem" }], deps);
+    expect(item.installedNow).toBe(false);
+    await expect(installCandidates([{ candidate: "java", version: "17" }], deps)).rejects.toThrow("offline mode is on");
+    await expect(installCandidates([{ candidate: "maven" }], deps)).rejects.toThrow("explicit version");
+    expect(calls).toEqual([]);
+  });
+
+  it("installs a local folder with sdk install <candidate> <version> <path>", async () => {
+    const { deps, calls, installedDirs } = makeDeps();
+    installedDirs.add("/opt/jdk-21");
+    const [item] = await installCandidates([{ candidate: "java", version: "21-custom", localPath: "/opt/jdk-21" }], deps);
+    expect(calls[0]).toEqual(["install", "java", "21-custom", "/opt/jdk-21"]);
+    expect(item.home).toBe(path.join("/sdk", "candidates", "java", "21-custom"));
+  });
+
+  it("rejects a local path that does not exist before calling sdk", async () => {
+    const { deps, calls } = makeDeps();
+    await expect(installCandidates([{ candidate: "java", version: "21-custom", localPath: "/nope" }], deps)).rejects.toThrow("does not exist");
+    expect(calls).toEqual([]);
   });
 });

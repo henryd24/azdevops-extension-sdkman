@@ -1,7 +1,7 @@
 import * as tl from "azure-pipelines-task-lib";
 import { getInputs } from "../utils/inputs";
 
-jest.mock("azure-pipelines-task-lib", () => ({ getInput: jest.fn(), getBoolInput: jest.fn() }));
+jest.mock("azure-pipelines-task-lib", () => ({ getInput: jest.fn(), getBoolInput: jest.fn(), getVariable: jest.fn() }));
 const mocked = tl as jest.Mocked<typeof tl>;
 
 function setInputs(values: Record<string, string>) {
@@ -25,7 +25,7 @@ describe("SdkmanInstall getInputs", () => {
   });
 
   it("rejects an invalid candidate line before touching the network", () => {
-    setInputs({ candidates: "java 21 extra" });
+    setInputs({ candidates: "java 21 /opt/jdk extra" });
     expect(() => getInputs()).toThrow("Invalid candidate");
   });
 });

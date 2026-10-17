@@ -6,11 +6,11 @@ function deps(exitCodes: Record<string, number> = {}) {
   const impl: RunDeps = {
     runSdk: async (args) => {
       calls.push({ kind: "sdk", value: args });
-      return { exitCode: exitCodes[args.join(" ")] ?? 0, stdout: "" };
+      return { exitCode: exitCodes[args.join(" ")] ?? 0, stdout: "", output: "" };
     },
     runShell: async (command) => {
       calls.push({ kind: "shell", value: command });
-      return { exitCode: exitCodes[command] ?? 0, stdout: "" };
+      return { exitCode: exitCodes[command] ?? 0, stdout: "", output: "" };
     },
   };
   return { impl, calls };

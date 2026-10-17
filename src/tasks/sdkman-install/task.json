@@ -31,7 +31,7 @@
       "label": "Candidates",
       "defaultValue": "",
       "required": true,
-      "helpMarkDown": "One per line: `<candidate> [<version>]`, e.g. `java 21.0.5-tem`, `gradle 8.11`, `maven`. Without a version, SDKMAN's default is used. List a candidate several times to install several versions; the first one is active. `#` starts a comment.",
+      "helpMarkDown": "One per line: `<candidate> [<version>]`, e.g. `java 21.0.5-tem`, `gradle 8.11`, `maven`. Without a version, SDKMAN's default is used. List a candidate several times to install several versions; the first one is active. `#` starts a comment. A third word installs a local folder: `java 21-custom /opt/jdk-21` (quote paths with spaces; use POSIX paths such as `/c/tools/jdk` on Windows).",
       "properties": {
         "resizable": "true",
         "rows": "4"
@@ -95,6 +95,42 @@
       "required": false,
       "helpMarkDown": "Path to a bash 4+ executable. Empty = auto-detect (Homebrew bash on macOS, Git Bash on Windows).",
       "groupName": "advanced"
+    },
+    {
+      "name": "offline",
+      "type": "boolean",
+      "label": "Offline mode",
+      "defaultValue": "false",
+      "required": false,
+      "groupName": "advanced",
+      "helpMarkDown": "No network access: only versions already on disk are used (restore `SDKMAN_DIR` from a pipeline cache), every candidate needs an explicit version and SDKMAN is never installed."
+    },
+    {
+      "name": "connectTimeout",
+      "type": "string",
+      "label": "Connect timeout (seconds)",
+      "defaultValue": "",
+      "required": false,
+      "groupName": "advanced",
+      "helpMarkDown": "Sets `sdkman_curl_connect_timeout` in SDKMAN's `etc/config` while the task runs (restored afterwards). Empty = SDKMAN's own value."
+    },
+    {
+      "name": "maxTime",
+      "type": "string",
+      "label": "Max time per request (seconds)",
+      "defaultValue": "",
+      "required": false,
+      "groupName": "advanced",
+      "helpMarkDown": "Sets `sdkman_curl_max_time` in SDKMAN's `etc/config` while the task runs (restored afterwards). Raise it for slow mirrors or proxies."
+    },
+    {
+      "name": "insecureSsl",
+      "type": "boolean",
+      "label": "Skip TLS verification (insecure)",
+      "defaultValue": "false",
+      "required": false,
+      "groupName": "advanced",
+      "helpMarkDown": "Sets `sdkman_insecure_ssl=true` while the task runs, so SDKMAN's curl does not verify certificates. Only for proxies that re-sign TLS; it affects `sdk` commands, not the initial installer download."
     }
   ],
   "outputVariables": [

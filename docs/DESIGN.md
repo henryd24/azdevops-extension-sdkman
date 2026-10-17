@@ -131,3 +131,10 @@ Ejecutados en Linux x64 (ubuntu, bash 5.2) con `HOME` y `SDKMAN_DIR` aislados. S
 - Integración con Azure Artifacts para Maven/Gradle (settings.xml / init.gradle).
 - Publicar versiones disponibles como picklist dinámico en el editor de pipelines.
 - Soporte `sdk install` desde mirror propio de binarios.
+
+## Decisiones de la Fase 6
+
+- **Ajustes solo por `etc/config`**: `sdk()` lo recarga en cada llamada, así que timeouts, `insecureSsl` y `sdkman_debug_mode` se escriben ahí temporalmente (solo si el usuario los pide o `system.debug` es true) y se restaura el archivo original al terminar cada comando (`withConfigOverrides`). Limitación: el instalador inicial se descarga con Node, así que `insecureSsl` no lo afecta.
+- **Reintentos con criterio**: los fallos con texto permanente (`is not available. Possible causes`, `is not a valid candidate`, `Invalid path!`) no se reintentan (antes tardaban ~20 s en fallar); el resto se reintenta 2 veces y el error final nombra `api.sdkman.io` y el host del vendor.
+- **`offline` propio**: comprueba disco en vez de usar `sdk offline enable`; falla con mensaje claro si falta SDKMAN, una versión o la versión explícita.
+- **F1.7 (fijar versión del CLI de SDKMAN)** sigue como P2: requeriría sustituir `SDKMAN_VERSION` en el script de instalación.

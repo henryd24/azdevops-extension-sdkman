@@ -1,5 +1,5 @@
 import * as tl from "azure-pipelines-task-lib";
-import { ensureSdkman, installAndActivate } from "../../../shared";
+import { ensureSdkman, toEnsureOptions, installAndActivate } from "../../../shared";
 import { getInputs, readRequests } from "./utils/inputs";
 
 /**
@@ -17,13 +17,7 @@ async function run(): Promise<void> {
     }
     console.log(`${inputs.file}: ${requests.map((c) => `${c.candidate}=${c.version}`).join(", ")}`);
 
-    const sdk = await ensureSdkman({
-      dir: inputs.sdkmanDir,
-      autoInstall: inputs.autoInstallSdkman,
-      installUrl: inputs.installUrl,
-      candidatesApi: inputs.candidatesApi,
-      bashPath: inputs.bashPath,
-    });
+    const sdk = await ensureSdkman(toEnsureOptions(inputs, inputs.autoInstallSdkman));
     const installed = await installAndActivate(sdk, requests, {
       setHomeVariables: inputs.setHomeVariables,
       addToPath: inputs.addToPath,

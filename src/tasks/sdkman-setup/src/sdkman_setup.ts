@@ -1,5 +1,5 @@
 import * as tl from "azure-pipelines-task-lib";
-import { ensureSdkman, formatTable, group, mdTable, publishSummary, section } from "../../../shared";
+import { ensureSdkman, toEnsureOptions, formatTable, group, mdTable, publishSummary, section } from "../../../shared";
 import { getSdkmanInputs } from "../../../shared/inputs";
 
 /**
@@ -10,13 +10,7 @@ async function run(): Promise<void> {
   try {
     const inputs = getSdkmanInputs();
     const sdk = await group("Set up SDKMAN", () =>
-      ensureSdkman({
-        dir: inputs.sdkmanDir,
-        autoInstall: true,
-        installUrl: inputs.installUrl,
-        candidatesApi: inputs.candidatesApi,
-        bashPath: inputs.bashPath,
-      }),
+      ensureSdkman(toEnsureOptions(inputs, true)),
     );
 
     const rows = [

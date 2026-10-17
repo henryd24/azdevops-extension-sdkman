@@ -185,6 +185,33 @@ Every line is passed to `sdk` **as arguments**, never interpolated into a shell 
 
 In both modes the commands see the same `JAVA_HOME` and `PATH` as the following steps (the versions activated by `SdkmanInstall` / `SdkmanEnv`). Note that `sdk current` reports SDKMAN's *default* versions, which can differ from the ones activated for the job when you installed several versions.
 
+## Mirrors, proxies and offline agents
+
+| Situation | What to set |
+| --------- | ----------- |
+| No access to `get.sdkman.io` | `installUrl`: your internal copy of the installer (keep `rcupdate=false` in the URL). |
+| No access to `api.sdkman.io` | `candidatesApi`: a mirror of the SDKMAN API (`SDKMAN_CANDIDATES_API`). |
+| Slow proxy | `connectTimeout` / `maxTime` (seconds). |
+| Proxy that re-signs TLS | `insecureSsl: true` (skips certificate checks in `sdk`'s curl; the initial installer download is not affected). Prefer fixing the agent's trust store. |
+| No network at all | `offline: true`: only versions already in `SDKMAN_DIR` are used (restore it from a cache), every candidate needs an explicit version, and nothing is downloaded or installed. |
+
+`connectTimeout`, `maxTime`, `insecureSsl` and `system.debug` can only be applied through SDKMAN's `etc/config`, so the task writes them there **only when you set them** and restores the original file when each command ends. Running the pipeline with `system.debug: true` turns on SDKMAN's own debug output.
+
+Failed downloads are retried twice. Failures that cannot improve (a version that does not exist for the platform, an unknown candidate, a bad local path) fail immediately; when retries run out, the error names `api.sdkman.io` and the vendor download host.
+
+## A local folder as a version
+
+An existing JDK on the agent (or one your build produced) can be registered as a SDKMAN version with a third word:
+
+```yaml
+- task: SdkmanInstall@0
+  inputs:
+    candidates: |
+      java 21-custom /opt/jdk-21
+```
+
+Quote paths with spaces. `JAVA_HOME` then points to `<SDKMAN_DIR>/candidates/java/21-custom` (a link to your folder). On Windows use POSIX paths (`/c/tools/jdk-21`).
+
 ## Caching between runs
 
 SDKMAN keeps what it installs in `SDKMAN_DIR`. On hosted agents, cache it with `Cache@2` so JDKs are not downloaded on every run:
@@ -233,6 +260,7 @@ Each task logs in collapsible groups, prints a table at the end and publishes a 
 | `installUrl` | `https://get.sdkman.io?rcupdate=false` | Installer URL (mirror). Keep `rcupdate=false` so `~/.bashrc` is not modified. |
 | `candidatesApi` | | Overrides `SDKMAN_CANDIDATES_API` (default `https://api.sdkman.io/2`). |
 | `bashPath` | | A specific bash 4+ executable. |
+| `offline`, `connectTimeout`, `maxTime`, `insecureSsl` | | Network options, see [Mirrors, proxies and offline agents](#mirrors-proxies-and-offline-agents). All four tasks accept them. |
 
 Outputs: `sdkmanDir`, `sdkmanVersion`, `sdkmanCacheHit` (`true` when SDKMAN was already installed).
 
@@ -240,7 +268,7 @@ Outputs: `sdkmanDir`, `sdkmanVersion`, `sdkmanCacheHit` (`true` when SDKMAN was 
 
 | Input | Default | Description |
 | ----- | ------- | ----------- |
-| `candidates` | (required) | One per line: `<candidate> [<version>]`. `#` starts a comment. List a candidate several times for several versions; the first is active. |
+| `candidates` | (required) | One per line: `<candidate> [<version> [<local path>]]`. `#` starts a comment. List a candidate several times for several versions; the first is active. |
 | `autoInstallSdkman` | `true` | Install SDKMAN if it is missing. |
 | `setHomeVariables` | `true` | Export `JAVA_HOME`, `GRADLE_HOME`, `MAVEN_HOME`... (`<CANDIDATE>_HOME`). |
 | `addToPath` | `true` | Prepend the `bin` folder of each active version to the PATH. |

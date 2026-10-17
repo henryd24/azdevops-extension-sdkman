@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { SHELL_SCRIPT, shellBashArgs, candidateHome, cleanSdkOutput, createOutputCleaner, parseDefaultVersion, resolveSdkmanDir, SDK_SCRIPT, sdkBashArgs, sdkEnvironment } from "../sdkman";
+import { toEnsureOptions, SHELL_SCRIPT, shellBashArgs, candidateHome, cleanSdkOutput, createOutputCleaner, parseDefaultVersion, resolveSdkmanDir, SDK_SCRIPT, sdkBashArgs, sdkEnvironment } from "../sdkman";
 
 describe("sdkBashArgs", () => {
   it("passes sdk arguments positionally, never inside the script", () => {
@@ -95,5 +95,17 @@ describe("shellBashArgs", () => {
     expect(saved).toBeLessThan(sourced);
     expect(sourced).toBeLessThan(restored);
     expect(restored).toBeLessThan(SHELL_SCRIPT.indexOf('eval "$1"'));
+  });
+});
+
+describe("toEnsureOptions", () => {
+  const base = { sdkmanDir: "/d", installUrl: "u", candidatesApi: "a", bashPath: "b", offline: false, insecureSsl: false, debug: false };
+  it("passes the shared inputs through and builds the config overrides", () => {
+    const options = toEnsureOptions({ ...base, offline: true, maxTime: 60, debug: true }, false);
+    expect(options).toMatchObject({ dir: "/d", autoInstall: false, installUrl: "u", candidatesApi: "a", bashPath: "b", offline: true });
+    expect(options.config).toEqual({ sdkman_curl_max_time: "60", sdkman_debug_mode: "true" });
+  });
+  it("leaves the config alone by default", () => {
+    expect(toEnsureOptions(base, true).config).toEqual({});
   });
 });

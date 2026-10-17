@@ -105,6 +105,41 @@ jobs:
           node scripts/run-task.js sdkman-install "candidates=java 21.0.5-tem" 2>&1 | tee "$LOGS/idempotent.log"
           grep -q "already installed" "$LOGS/idempotent.log"
 
+      # --- Fase 6: red, offline, versión local y ajustes de etc/config
+      - name: Offline mode uses what is on disk (SDKMAN API unreachable)
+        run: |
+          set -o pipefail
+          node scripts/run-task.js sdkman-install offline=true candidatesApi=http://127.0.0.1:1 "candidates=java 21.0.5-tem" 2>&1 | tee "$LOGS/offline.log"
+          grep -q "already installed" "$LOGS/offline.log"
+
+      - name: Offline mode refuses to download
+        run: |
+          if node scripts/run-task.js sdkman-install offline=true "candidates=java 11.0.25-tem" > "$LOGS/offline-fail.log" 2>&1; then echo "expected a failure"; exit 1; fi
+          grep -q "offline mode is on" "$LOGS/offline-fail.log"
+
+      - name: Permanent failures are not retried
+        run: |
+          if node scripts/run-task.js sdkman-install "candidates=java 99.9.9-nope" > "$LOGS/permanent.log" 2>&1; then echo "expected a failure"; exit 1; fi
+          grep -q "retrying will not help" "$LOGS/permanent.log"
+          ! grep -q "retrying in" "$LOGS/permanent.log"
+
+      - name: Local folder as a candidate version
+        if: runner.os != 'Windows'
+        run: |
+          set -o pipefail
+          node scripts/run-task.js sdkman-install "candidates=java 21-local $SDKMAN_DIR/candidates/java/21.0.5-tem" 2>&1 | tee "$LOGS/local.log"
+          grep -q "21-local" "$LOGS/local.log"
+          test -e "$SDKMAN_DIR/candidates/java/21-local/bin"
+
+      - name: etc/config overrides are applied during the command and restored afterwards
+        run: |
+          set -o pipefail
+          CFG="$(cygpath -u "$SDKMAN_DIR" 2>/dev/null || echo "$SDKMAN_DIR")/etc/config"
+          node scripts/run-task.js sdkman-run insecureSsl=true connectTimeout=30 mode=shell 'commands=grep -E "insecure|connect_timeout" "$SDKMAN_DIR/etc/config"' 2>&1 | tee "$LOGS/config.log"
+          grep -q "sdkman_insecure_ssl=true" "$LOGS/config.log"
+          grep -q "sdkman_curl_connect_timeout=30" "$LOGS/config.log"
+          grep -q "sdkman_insecure_ssl=false" "$CFG"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:

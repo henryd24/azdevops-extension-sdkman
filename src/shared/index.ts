@@ -4,5 +4,6 @@ export * from "./candidates";
 export * from "./install";
 export * from "./activate";
 export * from "./args";
+export * from "./config";
 export * from "./inputs";
 export * from "./output";

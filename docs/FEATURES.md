@@ -25,8 +25,8 @@ Cada feature tiene un ID para referenciarla en el plan de implementación (`docs
 | F2.4 | Primera versión de cada candidate = activa (se exporta su ruta); al final se ejecuta `sdk default` con ella para que `current` sea coherente (`sdk install` siempre mueve `current`). | P0 | Con dos versiones de java, la activa es la indicada. |
 | F2.5 | Validación de inputs antes de ejecutar (formato de identifier, candidates duplicados). | P0 | Error de input claro, sin llamar a la red. |
 | F2.6 | Reintentos con backoff en descargas fallidas; error que nombra el dominio caído. | P1 | Un fallo transitorio no rompe el pipeline. |
-| F2.7 | Instalar versión local (`sdk install java 21-custom /ruta`). | P1 | La ruta queda enlazada y exportada. |
-| F2.8 | Modo `offline` (`sdk offline enable`) y fallo claro si la versión no está en `archives`. | P1 | Funciona con caché restaurada y sin red. |
+| F2.7 | Instalar versión local: tercera palabra de la línea (`java 21-custom /ruta`, entre comillas si hay espacios). | P1 | HECHO: `candidates/java/21-custom` es un enlace a la ruta y se exporta. |
+| F2.8 | Modo `offline` implementado en la tarea (usa solo versiones ya en disco, exige versión explícita, no instala SDKMAN; no usa `sdk offline enable`, para no depender de estado de shell de SDKMAN) y fallo claro si falta algo. | P1 | Funciona con caché restaurada y sin red. |
 | F2.9 | Avisar si se sobrescribe un `JAVA_HOME` previo del agente. | P1 | Línea de warning con valor anterior y nuevo. |
 | F2.10 | Múltiples versiones activas a la vez (`JAVA_HOME_17`, `JAVA_HOME_21`). | P2 | Ver "ideas para después" en DESIGN. |
 

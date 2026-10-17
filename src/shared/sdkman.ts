@@ -4,6 +4,8 @@ import * as path from "node:path";
 import * as tl from "azure-pipelines-task-lib";
 import { IExecOptions, IExecSyncOptions } from "azure-pipelines-task-lib/toolrunner";
 import * as tool from "azure-pipelines-tool-lib/tool";
+import { buildConfigOverrides, withConfigOverrides } from "./config";
+import { SdkmanInputs } from "./inputs";
 import {
   bashCandidates,
   detectOs,
@@ -31,6 +33,23 @@ export interface EnsureSdkmanOptions {
   installUrl: string;
   candidatesApi?: string;
   bashPath?: string;
+  /** Sin red: no instala SDKMAN ni resuelve versiones por defecto. */
+  offline?: boolean;
+  /** Ajustes temporales de `etc/config` (ver config.ts). */
+  config?: Record<string, string>;
+}
+
+/** Opciones de `ensureSdkman` a partir de los inputs comunes de las tareas. */
+export function toEnsureOptions(inputs: SdkmanInputs, autoInstall: boolean): EnsureSdkmanOptions {
+  return {
+    dir: inputs.sdkmanDir,
+    autoInstall,
+    installUrl: inputs.installUrl,
+    candidatesApi: inputs.candidatesApi,
+    bashPath: inputs.bashPath,
+    offline: inputs.offline,
+    config: buildConfigOverrides(inputs),
+  };
 }
 
 export interface SdkmanInfo {
@@ -44,6 +63,9 @@ export interface SdkmanInfo {
   /** true si SDKMAN ya estaba instalado (no se descargó). */
   cacheHit: boolean;
   candidatesApi: string;
+  offline: boolean;
+  /** Ajustes que se aplican a `etc/config` durante cada comando. */
+  config: Record<string, string>;
 }
 
 export interface RunSdkOptions {
@@ -58,6 +80,8 @@ export interface RunSdkOptions {
 export interface RunSdkResult {
   exitCode: number;
   stdout: string;
+  /** stdout y stderr juntos (SDKMAN escribe sus mensajes de error en cualquiera de los dos). */
+  output: string;
 }
 
 /**
@@ -264,6 +288,9 @@ export async function ensureSdkman(options: EnsureSdkmanOptions): Promise<Sdkman
 
   let cacheHit = true;
   if (!fs.existsSync(initScriptPath(dir))) {
+    if (options.offline) {
+      throw new Error(`SDKMAN was not found in ${dir} and offline mode is on, so it cannot be installed. Restore SDKMAN_DIR (for example from a pipeline cache) or turn offline mode off.`);
+    }
     if (!options.autoInstall) {
       throw new Error(
         `SDKMAN was not found in ${dir} and automatic installation is disabled. Add a SdkmanSetup step or enable 'Install SDKMAN if missing'.`,
@@ -276,7 +303,7 @@ export async function ensureSdkman(options: EnsureSdkmanOptions): Promise<Sdkman
   tl.setVariable("SDKMAN_DIR", dir);
   const version = readSdkmanVersion(dir);
   console.log(`Using SDKMAN ${version} (${dir})${cacheHit ? "" : " - installed now"}`);
-  return { dir, bash, os: osName, version, cacheHit, candidatesApi };
+  return { dir, bash, os: osName, version, cacheHit, candidatesApi, offline: !!options.offline, config: options.config ?? {} };
 }
 
 /** Ejecuta `sdk <args>` con SDKMAN cargado. La salida se muestra en vivo (limpia) y se devuelve tal cual en `stdout`. */
@@ -292,26 +319,33 @@ export async function runShell(sdk: SdkmanInfo, command: string, options: RunSdk
 async function runBash(sdk: SdkmanInfo, bashArgs: string[], label: string, options: RunSdkOptions): Promise<RunSdkResult> {
   const runner = tl.tool(sdk.bash).arg(bashArgs);
   let stdout = "";
+  let output = "";
   const cleaner = createOutputCleaner((text) => {
     if (!options.silent) process.stdout.write(text);
   });
   runner.on("stdout", (data: Buffer) => {
     stdout += data.toString();
+    output += data.toString();
     cleaner.push(data.toString());
   });
-  runner.on("stderr", (data: Buffer) => cleaner.push(data.toString()));
+  runner.on("stderr", (data: Buffer) => {
+    output += data.toString();
+    cleaner.push(data.toString());
+  });
   const env = sdkEnvironment(toBashPath(sdk.bash, sdk.os, sdk.dir), sdk.candidatesApi, options.env);
-  const exitCode = await runner.exec({
-    cwd: options.cwd,
-    env: { ...process.env, ...env } as { [key: string]: string },
-    silent: true, // la salida se muestra ya limpia (cleanSdkOutput)
-    ignoreReturnCode: true,
-  } as IExecOptions);
+  const exitCode = await withConfigOverrides<number>(sdk.dir, sdk.config, async () =>
+    runner.exec({
+      cwd: options.cwd,
+      env: { ...process.env, ...env } as { [key: string]: string },
+      silent: true, // la salida se muestra ya limpia (cleanSdkOutput)
+      ignoreReturnCode: true,
+    } as IExecOptions),
+  );
   cleaner.flush();
   if (exitCode !== 0 && options.failOnError !== false) {
     throw new Error(`'${label}' failed with exit code ${exitCode}`);
   }
-  return { exitCode, stdout };
+  return { exitCode, stdout, output };
 }
 
 /** Versión por defecto de un candidate según la API de SDKMAN (o el mirror configurado). */

@@ -46,6 +46,7 @@ export async function installAndActivate(sdk: SdkmanInfo, requests: CandidateReq
   const installed = await group("Install candidates", () =>
     installCandidates(requests, {
       sdkmanDir: sdk.dir,
+      offline: sdk.offline,
       run: (args) => runSdk(sdk, args, { failOnError: false }),
       exists: fs.existsSync,
       defaultVersion: (candidate) => fetchDefaultVersion(sdk.candidatesApi, candidate),

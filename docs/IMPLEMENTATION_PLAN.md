@@ -66,7 +66,7 @@ Entregable (cumplido): sección "Resultados de la Fase 0" en `DESIGN.md`, riesgo
 - Features: F4.1–F4.4.
 - **Hecho cuando**: `sdk list java`, `sdk current`, `sdk flush` funcionan en un pipeline real y un arg malicioso no se ejecuta.
 
-## Fase 6 · Robustez y modos de red
+## Fase 6 · Robustez y modos de red — HECHA (Linux x64 con sdk real; macOS/Windows vía `validate-tasks.yml`). F1.7 (fijar versión del CLI) queda fuera: P2
 
 - Mirror (`installUrl`, `candidatesApi`), `insecureSsl`, timeouts, `offline`, versión local (F2.7), `system.debug` → `sdkman_debug_mode`.
 - Mensajes de error que nombren el dominio (api.sdkman.io, vendor) ante fallos de red.

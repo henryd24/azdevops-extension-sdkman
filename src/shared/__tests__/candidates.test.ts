@@ -17,13 +17,25 @@ describe("parseCandidates", () => {
     expect(parseCandidates("java 21.0.5-tem\njava 17.0.13-tem")).toHaveLength(2);
   });
 
+  it("accepts a local path as third word, quoted when it has spaces", () => {
+    expect(parseCandidates('java 21-custom /opt/jdk-21\njava 17-x "/opt/my jdk"\nmaven=3.9.9')).toEqual([
+      { candidate: "java", version: "21-custom", localPath: "/opt/jdk-21" },
+      { candidate: "java", version: "17-x", localPath: "/opt/my jdk" },
+      { candidate: "maven", version: "3.9.9" },
+    ]);
+  });
+
+  it("keeps '#' and '=' inside a path", () => {
+    expect(parseCandidates("java 21-c /opt/a=b/jdk#1 # trailing comment")).toEqual([{ candidate: "java", version: "21-c", localPath: "/opt/a=b/jdk#1" }]);
+  });
+
   it("returns an empty list for empty input", () => {
     expect(parseCandidates(undefined)).toEqual([]);
     expect(parseCandidates("  \n# only a comment")).toEqual([]);
   });
 
   it.each([
-    ["java 21 extra", "Invalid candidate"],
+    ["java 21 /p extra", "Invalid candidate"],
     ["1java 21", "Invalid candidate name"],
     ["java 21;rm", "Invalid version"],
     ["java $(whoami)", "Invalid version"],
