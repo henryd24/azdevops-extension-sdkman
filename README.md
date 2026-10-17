@@ -369,7 +369,7 @@ steps:
         maven 3.9.9
 ```
 
-An installed version is detected on disk, so a restored cache means no download. `SdkmanInstall` retries failed downloads twice.
+An installed version is detected on disk, so a restored cache means no download. This exact example is checked by this repository's Azure pipeline: the second run restores the cache and downloads nothing. `SdkmanInstall` retries failed downloads twice.
 
 ## Using task outputs
 

@@ -180,3 +180,12 @@ El `trigger`/`pr` del archivo solo apuntan a `trunk`: para otras ramas hay que l
 - Azure DevOps (organización o proyecto): *Securely build pull requests from forked repositories*. Con `pr: none` el pipeline no construye PRs, pero conviene dejarlo activo por si algún día se añade un trigger de PR; si se añade, usar agentes hospedados por Microsoft, no activar *Make secrets available to builds of forks* y exigir comentario de un miembro del equipo.
 
 **Riesgos que se aceptan y por qué:** las tareas ejecutan el instalador oficial de SDKMAN (`curl | bash` de `get.sdkman.io`) y descargan JDK de los vendors; es inherente a lo que hace la extensión. Los `uses: actions/*` van por etiqueta mayor (`@v4`), no por SHA: las acciones de primera parte se consideran de confianza (el linter obliga a SHA para cualquier acción de terceros).
+
+## Ejemplos de la documentación verificados en Azure (runs 1919 y 1920)
+
+- **Maven y Gradle** (`tests/fixtures/maven-app`, `gradle-app`): compilan con el JDK activo en Linux, macOS y Windows hospedados de Azure (run 1919).
+- **Caché con `Cache@2`** (ejemplo del README): job `cache_example` del `azure-pipelines.yml`. En el run 1919 la caché estaba vacía (el paso de comprobación se omite) y se guardó; en el run 1920 se restauró y el paso «Cache hit means nothing was downloaded» **pasó**, es decir, los JDK ya estaban en disco y `SdkmanInstall` no descargó nada.
+
+## Pendiente: la rama `trunk` no existe
+
+Los triggers de `ci.yml` (PR a `trunk`), `release.yml` (push a `trunk`) y `azure-pipelines.yml` (push a `trunk`) apuntan a `trunk`, pero hoy el repositorio solo tiene la rama `claude/optimistic-faraday-0oxar8`, que es también la rama por defecto. Hasta que exista `trunk` no hay releases automáticas ni build de Azure por push; el CI de GitHub sí corre por las ramas `claude/**`. Decisión del propietario: crear `trunk` (y hacerla la rama por defecto) o cambiar esos triggers a la rama que se use.

@@ -347,7 +347,7 @@ steps:
         maven 3.9.9
 ```
 
-Una versión instalada se detecta en disco, así que con la caché restaurada no hay descarga. `SdkmanInstall` reintenta dos veces las descargas fallidas.
+Una versión instalada se detecta en disco, así que con la caché restaurada no hay descarga. Este mismo ejemplo lo comprueba el pipeline de Azure de este repositorio: la segunda ejecución restaura la caché y no descarga nada. `SdkmanInstall` reintenta dos veces las descargas fallidas.
 
 ## Usar los outputs de las tareas
 
