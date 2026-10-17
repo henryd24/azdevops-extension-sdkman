@@ -63,20 +63,28 @@ stages:
             artifact: tasks
 
           # --- Prerrequisitos documentados en el README (verificados en los runners hospedados con GitHub Actions)
-          # macOS trae solo bash 3.2; SDKMAN exige >= 4. Sin comillas $(...) para que Azure no lo trate como macro.
+          # macOS trae solo bash 3.2; SDKMAN exige >= 4. Con backticks, porque Azure trataría $(...) como macro.
+          # `set -e`: si brew falla, el paso falla (no se publica un PATH inexistente).
           - script: |
+              set -e
               brew install bash
               BREW_BIN=`brew --prefix`/bin
+              "$BREW_BIN/bash" --version | head -1
               echo "##vso[task.prependpath]$BREW_BIN"
             displayName: Prerequisite - bash 4+ (macOS)
-            condition: eq(variables['Agent.OS'], 'Darwin')
-          # Git Bash de windows-latest no trae zip (unzip y curl sí).
-          - script: |
-              C:\msys64\usr\bin\pacman.exe -S --noconfirm zip
-              copy /Y C:\msys64\usr\bin\zip.exe "C:\Program Files\Git\usr\bin\zip.exe"
-              if not exist "C:\Program Files\Git\usr\bin\msys-bz2-1.dll" copy C:\msys64\usr\bin\msys-bz2-1.dll "C:\Program Files\Git\usr\bin\"
+            condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
+          # Git Bash de windows-latest no trae zip (unzip y curl sí). PowerShell en vez de cmd: en un `script:` de Windows
+          # (un .cmd temporal) solo cuenta el código de salida de la última línea y un fallo intermedio pasaría desapercibido.
+          - powershell: |
+              & C:\msys64\usr\bin\pacman.exe -S --noconfirm zip
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+              $git = 'C:\Program Files\Git\usr\bin'
+              Copy-Item C:\msys64\usr\bin\zip.exe "$git\zip.exe" -Force
+              if (-not (Test-Path "$git\msys-bz2-1.dll")) { Copy-Item C:\msys64\usr\bin\msys-bz2-1.dll $git }
+              & 'C:\Program Files\Git\bin\bash.exe' -c 'command -v zip unzip curl'
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             displayName: Prerequisite - zip in Git Bash (Windows)
-            condition: eq(variables['Agent.OS'], 'Windows_NT')
+            condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
 
           # Los comandos van con "\n" literal: run-task.js lo convierte en salto de línea (%0A lo interpretaría cmd.exe).
           # --- SdkmanSetup
@@ -85,7 +93,7 @@ stages:
             displayName: SdkmanSetup
           - script: node scripts/expect.js "bash -c 'source $SDKMAN_DIR/bin/sdkman-init.sh && sdk version'" "script:"
             displayName: SDKMAN_DIR is usable from a script step
-            condition: ne(variables['Agent.OS'], 'Windows_NT')
+            condition: and(succeeded(), ne(variables['Agent.OS'], 'Windows_NT'))
 
           # --- SdkmanInstall: dos JDK (el primero activo) y maven
           - script: node scripts/run-task.js sdkman-install "candidates=java 21.0.5-tem\njava 17.0.13-tem\nmaven 3.9.9"
@@ -116,4 +124,4 @@ stages:
             displayName: SdkmanInstall offline uses what is on disk
           - script: node scripts/run-task.js sdkman-install "candidates=java 21-local $SDKMAN_DIR/candidates/java/21.0.5-tem"
             displayName: SdkmanInstall local folder as a version
-            condition: ne(variables['Agent.OS'], 'Windows_NT')
+            condition: and(succeeded(), ne(variables['Agent.OS'], 'Windows_NT'))

@@ -38,18 +38,21 @@ SDKMAN is a bash program, so the agent needs:
 ```yaml
 steps:
   - script: |
+      set -e
       brew install bash
       BREW_BIN=`brew --prefix`/bin
       echo "##vso[task.prependpath]$BREW_BIN"
     displayName: Prerequisite - bash 4+ (macOS)
-    condition: eq(variables['Agent.OS'], 'Darwin')
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
 
-  - script: |
-      C:\msys64\usr\bin\pacman.exe -S --noconfirm zip
-      copy /Y C:\msys64\usr\bin\zip.exe "C:\Program Files\Git\usr\bin\zip.exe"
-      if not exist "C:\Program Files\Git\usr\bin\msys-bz2-1.dll" copy C:\msys64\usr\bin\msys-bz2-1.dll "C:\Program Files\Git\usr\bin\"
+  - powershell: |
+      & C:\msys64\usr\bin\pacman.exe -S --noconfirm zip
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      $git = 'C:\Program Files\Git\usr\bin'
+      Copy-Item C:\msys64\usr\bin\zip.exe "$git\zip.exe" -Force
+      if (-not (Test-Path "$git\msys-bz2-1.dll")) { Copy-Item C:\msys64\usr\bin\msys-bz2-1.dll $git }
     displayName: Prerequisite - zip in Git Bash (Windows)
-    condition: eq(variables['Agent.OS'], 'Windows_NT')
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
 ```
 
 **Windows agents** work through **Git Bash** (Git for Windows, found at `C:\Program Files\Git\bin\bash.exe`), and they need **`zip` and `unzip`** available inside Git Bash. `unzip` is also what the Azure Pipelines agent itself relies on to unpack tools. SDKMAN does not support Cygwin or WSL's bash as the agent shell: the task never picks `C:\Windows\System32\bash.exe` (use the `bashPath` input to point at a specific Git Bash). On self-hosted Windows agents, install `zip` and `unzip` into Git's `usr\bin` (for example from MSYS2 or GnuWin32).

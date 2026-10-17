@@ -138,3 +138,16 @@ Ejecutados en Linux x64 (ubuntu, bash 5.2) con `HOME` y `SDKMAN_DIR` aislados. S
 - **Reintentos con criterio**: los fallos con texto permanente (`is not available. Possible causes`, `is not a valid candidate`, `Invalid path!`) no se reintentan (antes tardaban ~20 s en fallar); el resto se reintenta 2 veces y el error final nombra `api.sdkman.io` y el host del vendor.
 - **`offline` propio**: comprueba disco en vez de usar `sdk offline enable`; falla con mensaje claro si falta SDKMAN, una versión o la versión explícita.
 - **F1.7 (fijar versión del CLI de SDKMAN)** sigue como P2: requeriría sustituir `SDKMAN_VERSION` en el script de instalación.
+
+## Validación en Azure Pipelines (pendiente de ejecutar por el usuario)
+
+`azure-pipelines.yml` no se ha podido ejecutar desde la sesión de desarrollo (no hay conector de Azure DevOps). Se revisó contra la documentación de Microsoft Learn y se corrigió:
+
+- `Agent.OS` usa `Windows_NT` / `Darwin` / `Linux` (correcto).
+- Una `condition:` propia **reemplaza** el `succeeded()` por defecto: todas las condiciones del pipeline son `and(succeeded(), ...)`.
+- Un `script:` de Windows es un `.cmd` temporal: solo cuenta el exit code de la última línea, y invocar un `.cmd`/`npm` sin `call` corta el paso. Por eso el prerrequisito de zip usa `powershell:` con comprobaciones, y los pasos de tareas solo invocan `node` (un `.exe`).
+- Los comandos de las tareas usan `\n` literal (no `%0A`, que cmd interpretaría) y comillas dobles (portables a cmd y bash).
+
+Lo que NO está verificado en Azure (sí en los mismos runners vía `validate-tasks.yml`): `download: current` + `TASKS_DIR=$(Pipeline.Workspace)/tasks`, la propagación de `##vso[task.prependpath]` entre pasos `script`, y el prerrequisito PowerShell de Windows.
+
+Para ejecutarlo: *Pipelines → New pipeline → GitHub → este repositorio → Existing Azure Pipelines YAML file → `/azure-pipelines.yml`* y lanzarlo en la rama `claude/optimistic-faraday-0oxar8` (el `trigger`/`pr` del archivo solo apuntan a `trunk`, así que hay que lanzarlo a mano). Si algún paso falla, el log del paso y su nombre bastan para diagnosticarlo.
