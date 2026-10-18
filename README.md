@@ -1,4 +1,4 @@
-<p align="center"><img src="images/logo.png" alt="SDKMAN Manager logo" width="160"></p>
+<p align="center"><img src="images/extension-icon.png" alt="SDKMAN Manager logo" width="160"></p>
 
 # SDKMAN Manager
 
